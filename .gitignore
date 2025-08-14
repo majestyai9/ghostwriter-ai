@@ -1,3 +1,43 @@
+# Byte-compiled / optimized / DLL files
 __pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Environment variables
 .env
+.env.local
+.env.*.local
+
+# Claude configuration (local settings)
+.claude/
+
+# Generated books
 books/
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+*.partial
+*.bak
+
+# API Keys and secrets
+*.key
+secrets/
