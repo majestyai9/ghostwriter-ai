@@ -49,6 +49,9 @@ class ProjectManager:
         self.projects = self._load_projects()
         self.current_project = self._load_current_project()
         
+        # Project-specific managers (created per project)
+        self.project_managers = {}
+        
     def _load_projects(self) -> Dict[str, ProjectMetadata]:
         """Load project registry"""
         if self.config_file.exists():
@@ -173,8 +176,8 @@ class ProjectManager:
         self.current_project = project_id
         self._save_current_project(project_id)
         
-        # Clear any cached data from previous project
-        self._clear_runtime_cache()
+        # Initialize managers for this project if not already done
+        self._init_project_managers(project_id)
         
         self.logger.info(f"Switched to project {project_id}")
         
@@ -406,23 +409,103 @@ class ProjectManager:
             'formats': list(set(export_formats))
         }
         
-    def _clear_runtime_cache(self):
-        """Clear runtime cache when switching projects"""
-        # Clear any in-memory caches
-        try:
-            from cache_manager import get_cache
-            cache = get_cache()
-            cache.clear()
-        except:
-            pass
+    def _init_project_managers(self, project_id: str):
+        """Initialize project-specific managers"""
+        if project_id not in self.project_managers:
+            project_dir = self.get_project_dir(project_id)
             
-        # Clear token optimizer state
-        try:
-            from token_optimizer import get_optimizer
-            optimizer = get_optimizer()
-            optimizer.book_manager = None
-        except:
-            pass
+            # Create dictionary for this project's managers
+            self.project_managers[project_id] = {
+                'cache_manager': None,
+                'token_optimizer': None,
+                'character_manager': None,
+                'style_manager': None,
+                'exporter': None
+            }
+            
+            # Lazy initialization - managers will be created when needed
+            
+    def get_cache_manager(self, project_id: str = None):
+        """Get cache manager for project"""
+        pid = project_id or self.current_project
+        if not pid:
+            raise ValueError("No project selected")
+            
+        if pid not in self.project_managers:
+            self._init_project_managers(pid)
+            
+        if self.project_managers[pid]['cache_manager'] is None:
+            from cache_manager import CacheManager
+            project_dir = self.get_project_dir(pid)
+            cache_dir = project_dir / "cache"
+            self.project_managers[pid]['cache_manager'] = CacheManager(
+                backend='file',
+                cache_dir=str(cache_dir)
+            )
+            
+        return self.project_managers[pid]['cache_manager']
+    
+    def get_token_optimizer(self, project_id: str = None):
+        """Get token optimizer for project"""
+        pid = project_id or self.current_project
+        if not pid:
+            raise ValueError("No project selected")
+            
+        if pid not in self.project_managers:
+            self._init_project_managers(pid)
+            
+        if self.project_managers[pid]['token_optimizer'] is None:
+            from token_optimizer import TokenOptimizer
+            self.project_managers[pid]['token_optimizer'] = TokenOptimizer()
+            
+        return self.project_managers[pid]['token_optimizer']
+    
+    def get_character_manager(self, project_id: str = None):
+        """Get character manager for project"""
+        pid = project_id or self.current_project
+        if not pid:
+            raise ValueError("No project selected")
+            
+        if pid not in self.project_managers:
+            self._init_project_managers(pid)
+            
+        if self.project_managers[pid]['character_manager'] is None:
+            from character_development import CharacterManager
+            project_dir = self.get_project_dir(pid)
+            self.project_managers[pid]['character_manager'] = CharacterManager(project_dir)
+            
+        return self.project_managers[pid]['character_manager']
+    
+    def get_style_manager(self, project_id: str = None):
+        """Get style manager for project"""
+        pid = project_id or self.current_project
+        if not pid:
+            raise ValueError("No project selected")
+            
+        if pid not in self.project_managers:
+            self._init_project_managers(pid)
+            
+        if self.project_managers[pid]['style_manager'] is None:
+            from style_templates import StyleManager
+            self.project_managers[pid]['style_manager'] = StyleManager()
+            
+        return self.project_managers[pid]['style_manager']
+    
+    def get_exporter(self, project_id: str = None):
+        """Get exporter for project"""
+        pid = project_id or self.current_project
+        if not pid:
+            raise ValueError("No project selected")
+            
+        if pid not in self.project_managers:
+            self._init_project_managers(pid)
+            
+        if self.project_managers[pid]['exporter'] is None:
+            from export_formats import BookExporter
+            project_dir = self.get_project_dir(pid)
+            self.project_managers[pid]['exporter'] = BookExporter(project_dir)
+            
+        return self.project_managers[pid]['exporter']
             
     def update_project_metadata(self,
                                project_id: str = None,
@@ -449,11 +532,6 @@ def get_project_manager() -> ProjectManager:
     if _project_manager is None:
         _project_manager = ProjectManager()
     return _project_manager
-
-def get_current_project_dir() -> Path:
-    """Get current project directory"""
-    pm = get_project_manager()
-    return pm.get_project_dir()
 
 def ensure_project_isolation(func):
     """Decorator to ensure project isolation"""

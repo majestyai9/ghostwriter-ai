@@ -170,10 +170,19 @@ class CohereProvider(LLMProvider):
         return formatted
         
     def count_tokens(self, text: str) -> int:
-        """Estimate token count for Cohere (rough approximation)"""
-        # Cohere uses a different tokenizer, this is a rough estimate
-        # Approximately 1 token per 4 characters
-        return len(text) // 4
+        """Count tokens using Cohere's tokenize method"""
+        try:
+            # Use the official tokenize method
+            response = self.client.tokenize(
+                text=text,
+                model=self.model,
+                offline=False  # Use API-based tokenizer for accuracy
+            )
+            return len(response.tokens)
+        except Exception as e:
+            self.logger.warning(f"Token counting failed, using fallback: {e}")
+            # Fallback to rough approximation
+            return len(text) // 4
         
     def get_model_info(self) -> Dict[str, Any]:
         """Get Cohere model information"""

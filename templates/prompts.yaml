@@ -1,0 +1,116 @@
+title:
+  template: |
+    Generate a creative and engaging title for a book based on the following initial idea:
+    "{original_title}"
+    
+    The title should be:
+    - Catchy and memorable
+    - Reflective of the book's content
+    - Appropriate for the target audience
+    
+    Return ONLY the title, without quotes or additional text.
+
+table_of_contents:
+  template: |
+    Create a detailed table of contents for a book with the following instructions:
+    {instructions}
+    
+    The table of contents should:
+    - Have between 10-20 chapters
+    - Each chapter should have 3-5 sections
+    - Follow a logical progression
+    - Be engaging and comprehensive
+    
+    Return the result as a JSON object with this structure:
+    ```json
+    {{
+      "chapters": [
+        {{
+          "number": 1,
+          "title": "Chapter Title",
+          "sections": [
+            {{
+              "number": 1,
+              "title": "Section Title"
+            }}
+          ]
+        }}
+      ]
+    }}
+    ```
+
+summary:
+  template: |
+    Write a compelling summary for the book titled "{title}".
+    
+    Book generation instructions:
+    {instructions}
+    
+    The summary should:
+    - Be 150-250 words
+    - Capture the essence of the book
+    - Engage potential readers
+    - Highlight key themes and topics
+    
+    Write the summary in an engaging, professional tone.
+
+chapter_topics:
+  template: |
+    For the book "{title}", generate key topics for:
+    Chapter {chapter_number}: {chapter_title}
+    
+    Context from table of contents:
+    {toc_context}
+    
+    Provide 5-7 key topics that this chapter should cover.
+    Format as a comma-separated list.
+
+chapter:
+  template: |
+    Write the full content for:
+    Chapter {chapter_number}: {chapter_title}
+    
+    Book: "{title}"
+    Summary: {summary}
+    
+    Topics to cover: {topics}
+    
+    Table of contents context:
+    {toc_context}
+    
+    Write comprehensive, engaging content that:
+    - Thoroughly explores the topics
+    - Maintains consistency with the book's theme
+    - Provides valuable insights
+    - Uses clear, accessible language
+    - Is approximately 2000-3000 words
+
+section_topics:
+  template: |
+    For Chapter {chapter_number}: {chapter_title}
+    Generate specific topics for Section {section_number}: {section_title}
+    
+    Chapter topics: {chapter_topics}
+    
+    Context:
+    {toc_context}
+    
+    Provide 3-5 specific topics for this section.
+    Format as a comma-separated list.
+
+section:
+  template: |
+    Write the content for:
+    Section {chapter_number}.{section_number}: {section_title}
+    
+    Part of Chapter {chapter_number}: {chapter_title}
+    Book: "{title}"
+    
+    Section topics: {topics}
+    Chapter topics: {chapter_topics}
+    
+    Write detailed content that:
+    - Focuses on the specific section topics
+    - Connects to the broader chapter themes
+    - Provides practical examples where appropriate
+    - Is approximately 800-1200 words

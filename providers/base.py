@@ -2,9 +2,11 @@
 Base LLM Provider Interface
 """
 from abc import ABC, abstractmethod
-from typing import List, Dict, Any, Optional, Generator
+from typing import List, Dict, Any, Optional, Generator, Callable
 from dataclasses import dataclass
 import logging
+import time
+import random
 
 @dataclass
 class LLMResponse:
@@ -129,3 +131,86 @@ class LLMProvider(ABC):
         # Default implementation: yield complete response
         response = self.generate(prompt, history, max_tokens, temperature, **kwargs)
         yield response.content
+    
+    def _call_with_retry(self,
+                        api_call: Callable,
+                        max_retries: int = 3,
+                        base_delay: float = 1.0,
+                        max_delay: float = 60.0,
+                        exponential_base: float = 2.0,
+                        jitter: bool = True,
+                        retry_on: Optional[List[type]] = None,
+                        **kwargs) -> Any:
+        """
+        Generic retry logic for API calls
+        
+        Args:
+            api_call: Function to call
+            max_retries: Maximum number of retry attempts
+            base_delay: Initial delay between retries in seconds
+            max_delay: Maximum delay between retries
+            exponential_base: Base for exponential backoff
+            jitter: Add random jitter to delays
+            retry_on: List of exception types to retry on (None = all)
+            **kwargs: Arguments to pass to api_call
+            
+        Returns:
+            Result from successful API call
+            
+        Raises:
+            Last exception if all retries failed
+        """
+        retry_on = retry_on or [Exception]
+        last_exception = None
+        
+        for attempt in range(max_retries):
+            try:
+                return api_call(**kwargs)
+                
+            except tuple(retry_on) as e:
+                last_exception = e
+                
+                if attempt < max_retries - 1:
+                    # Calculate delay with exponential backoff
+                    delay = min(base_delay * (exponential_base ** attempt), max_delay)
+                    
+                    # Add jitter if requested
+                    if jitter:
+                        delay = delay * (0.5 + random.random())
+                    
+                    self.logger.warning(
+                        f"Attempt {attempt + 1}/{max_retries} failed: {e}. "
+                        f"Retrying in {delay:.2f} seconds..."
+                    )
+                    
+                    time.sleep(delay)
+                else:
+                    self.logger.error(f"All {max_retries} attempts failed. Last error: {e}")
+                    
+        raise last_exception
+    
+    def _should_retry(self, exception: Exception) -> bool:
+        """
+        Determine if an exception should trigger a retry
+        Can be overridden by subclasses for provider-specific logic
+        
+        Args:
+            exception: The exception that occurred
+            
+        Returns:
+            True if should retry, False otherwise
+        """
+        # Common retryable conditions
+        error_str = str(exception).lower()
+        retryable_patterns = [
+            'rate limit',
+            'quota',
+            'timeout',
+            'connection',
+            'temporary',
+            '429',  # Too Many Requests
+            '503',  # Service Unavailable
+            '504',  # Gateway Timeout
+        ]
+        
+        return any(pattern in error_str for pattern in retryable_patterns)

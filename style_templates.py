@@ -442,17 +442,23 @@ class StyleManager:
             for name, style_dict in data.items():
                 self.custom_templates[name] = StyleTemplate(**style_dict)
 
-# Global style manager
-_style_manager = None
+# Note: Style manager should be obtained from ProjectManager
+# to ensure proper project isolation. Use:
+# from project_manager import get_project_manager
+# pm = get_project_manager()
+# style_manager = pm.get_style_manager()
 
-def get_style_manager() -> StyleManager:
-    """Get global style manager instance"""
-    global _style_manager
-    if _style_manager is None:
-        _style_manager = StyleManager()
-    return _style_manager
-
-def apply_style(prompt: str, style: str, prompt_type: str = 'base') -> str:
-    """Convenience function to apply style to prompt"""
-    manager = get_style_manager()
-    return manager.apply_style_to_prompt(prompt, style, prompt_type)
+def apply_style(prompt: str, style: str, prompt_type: str = 'base', style_manager: StyleManager = None) -> str:
+    """
+    Convenience function to apply style to prompt
+    
+    Args:
+        prompt: Original prompt
+        style: Style to apply
+        prompt_type: Type of prompt
+        style_manager: StyleManager instance (optional, for backward compatibility)
+    """
+    if style_manager is None:
+        # For backward compatibility - create temporary instance
+        style_manager = StyleManager()
+    return style_manager.apply_style_to_prompt(prompt, style, prompt_type)

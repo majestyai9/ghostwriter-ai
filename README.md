@@ -2,6 +2,23 @@
 
 An advanced AI-powered book writing application that supports multiple LLM providers, comprehensive error handling, and real-time progress tracking.
 
+## Recent Improvements (December 2024)
+
+### 🔧 Code Quality & Architecture
+- **Refactored generate.py** - New `BookGenerator` class eliminates code duplication
+- **Centralized retry logic** - Base `LLMProvider` class now handles all retry logic with exponential backoff
+- **Template-based prompts** - Prompts moved to external YAML files for easy customization
+- **Dependency injection** - Removed global singletons for better testing and isolation
+- **Accurate token counting** - All providers now use official SDK methods for token counting
+- **Fixed history management** - Maintains proper chronological order in conversations
+- **Safe JSON parsing** - Robust extraction from LLM responses with markdown code blocks
+
+### 🐛 Critical Fixes
+- Fixed token counting accuracy for Anthropic, Cohere, and Gemini providers
+- Fixed conversation history ordering bug that was breaking context
+- Added safe JSON parsing to handle various LLM response formats
+- Improved error handling and logging throughout
+
 ## Features
 
 ### 🚀 Multiple LLM Provider Support (Latest 2025 Models)
@@ -296,20 +313,24 @@ switch_provider('anthropic', {
 ```
 ghostwriter-ai/
 ├── providers/              # LLM provider implementations
-│   ├── base.py            # Base provider interface
+│   ├── base.py            # Base provider with retry logic
 │   ├── openai_provider.py # OpenAI implementation
 │   ├── anthropic_provider.py
 │   ├── cohere_provider.py
 │   ├── gemini_provider.py
 │   └── openrouter_provider.py
+├── templates/              # External templates
+│   └── prompts.yaml       # Customizable prompt templates
 ├── main.py                # Main application entry
-├── generate.py            # Book generation logic
+├── generate.py            # Legacy generation logic
+├── generate_refactored.py # New BookGenerator class
 ├── ai.py                  # AI interface layer
 ├── ai_enhanced.py         # Enhanced AI with optimizations
 ├── config.py              # Configuration management
 ├── events.py              # Event system
 ├── exceptions.py          # Custom exceptions
-├── prompts.py             # Prompt templates
+├── prompts.py             # Legacy prompt templates
+├── prompts_templated.py   # New template-based prompts
 ├── bookprinter.py         # Markdown output generation
 ├── project_manager.py     # Project isolation & management
 ├── style_templates.py     # Writing style templates
@@ -321,6 +342,56 @@ ghostwriter-ai/
 ├── background_tasks.py    # Async task processing
 ├── PERFORMANCE.md         # Performance optimization guide
 └── requirements.txt       # Python dependencies
+```
+
+## Code Architecture Highlights
+
+### BookGenerator Class (New)
+The refactored `BookGenerator` class provides a clean, DRY approach to book generation:
+
+```python
+from generate_refactored import BookGenerator
+
+# Initialize with book data and history
+generator = BookGenerator(book, history)
+
+# Use generic _generate_part method internally
+# Eliminates code duplication across title, TOC, chapters, sections
+```
+
+### Centralized Retry Logic
+All providers now inherit robust retry logic from the base class:
+
+```python
+class LLMProvider(ABC):
+    def _call_with_retry(self, api_call, max_retries=3, 
+                        exponential_base=2.0, jitter=True):
+        # Handles rate limits, timeouts, connection errors
+        # Exponential backoff with jitter
+        # Provider-specific exception handling
+```
+
+### Template-Based Prompts
+Prompts are now external and easily customizable:
+
+```yaml
+# templates/prompts.yaml
+chapter:
+  template: |
+    Write Chapter {chapter_number}: {chapter_title}
+    Book: "{title}"
+    Topics to cover: {topics}
+    ...
+```
+
+### Dependency Injection
+Project isolation through proper dependency injection:
+
+```python
+# No more global singletons
+pm = get_project_manager()
+cache = pm.get_cache_manager()  # Per-project instance
+style_mgr = pm.get_style_manager()  # Isolated managers
 ```
 
 ## Generated Output

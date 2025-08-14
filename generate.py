@@ -3,6 +3,7 @@ Enhanced generate module with error handling and event system
 """
 import json
 import logging
+import re
 from typing import Generator, Dict, Any, List
 import prompts
 from ai import callLLM
@@ -14,6 +15,29 @@ def _limit_text(text, limit=200):
         return text[:limit] + "..."
     else:
         return text
+
+def _extract_json(text: str) -> str:
+    """
+    Extract JSON from text that may contain additional content
+    
+    Args:
+        text: Text potentially containing JSON
+        
+    Returns:
+        Clean JSON string
+    """
+    # Try to find JSON block with markdown code blocks
+    json_match = re.search(r'```(?:json)?\s*(\{.*?\}|\[.*?\])\s*```', text, re.DOTALL)
+    if json_match:
+        return json_match.group(1)
+    
+    # Try to find raw JSON object or array
+    json_match = re.search(r'(\{.*\}|\[.*\])', text, re.DOTALL)
+    if json_match:
+        return json_match.group(1)
+    
+    # If no match, return original text (will likely fail JSON parsing)
+    return text
 
 def _toc_2_text(toc, highlightChapter=None):
     text = ""
@@ -64,9 +88,12 @@ def _write_toc(book, instructions, history):
             toc_str = callLLM(prompts.table_of_contents(instructions), history)
             
             try:
-                book["toc"] = json.loads(toc_str)
+                # Clean the JSON string before parsing
+                cleaned_json = _extract_json(toc_str)
+                book["toc"] = json.loads(cleaned_json)
             except json.JSONDecodeError as e:
                 logging.error(f"Failed to parse TOC JSON: {e}")
+                logging.error(f"Problematic string: {toc_str[:500]}")  # Log first 500 chars for debugging
                 raise ValidationError(f"Invalid TOC format: {e}")
                 
             # Validate TOC structure

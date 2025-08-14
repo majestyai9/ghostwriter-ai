@@ -616,21 +616,8 @@ class BookExporter:
                 
         return results
 
-# Global exporter
-_exporter = None
-
-def get_exporter(project_dir: Path = None) -> BookExporter:
-    """Get book exporter for current project"""
-    global _exporter
-    
-    if project_dir is None:
-        try:
-            from project_manager import get_current_project_dir
-            project_dir = get_current_project_dir()
-        except:
-            project_dir = Path(".")
-            
-    if _exporter is None or _exporter.project_dir != project_dir:
-        _exporter = BookExporter(project_dir)
-        
-    return _exporter
+# Note: Exporter should be obtained from ProjectManager
+# to ensure proper project isolation. Use:
+# from project_manager import get_project_manager
+# pm = get_project_manager()
+# exporter = pm.get_exporter()

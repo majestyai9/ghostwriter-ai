@@ -144,14 +144,19 @@ def _manage_history_tokens(history: List[Dict[str, str]], max_tokens: int) -> Li
     available_tokens = config.TOKEN_LIMIT - max_tokens
     current_tokens = provider.count_tokens(managed[0]['content']) if managed else 0
     
-    # Add messages from the end (most recent first)
+    # Collect messages that fit, starting from most recent
+    temp_messages = []
     for msg in reversed(history[1:]):
         msg_tokens = provider.count_tokens(msg['content'])
         if current_tokens + msg_tokens < available_tokens:
-            managed.insert(1, msg)  # Insert after system message
+            temp_messages.append(msg)
             current_tokens += msg_tokens
         else:
             break
+    
+    # Reverse to maintain chronological order and add to managed list
+    temp_messages.reverse()
+    managed.extend(temp_messages)
             
     if len(managed) < len(history):
         removed = len(history) - len(managed)

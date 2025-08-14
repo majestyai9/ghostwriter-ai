@@ -166,7 +166,8 @@ class GeminiProvider(LLMProvider):
         try:
             # Use Gemini's built-in token counting
             return self.model.count_tokens(text).total_tokens
-        except:
+        except Exception as e:
+            self.logger.warning(f"Token counting failed with model.count_tokens: {e}")
             # Fallback to estimation (approximately 1 token per 4 characters)
             return len(text) // 4
             

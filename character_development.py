@@ -498,22 +498,8 @@ Total Appearances: {len(char.chapter_appearances)}
             
         self.logger.info(f"Exported character data to {filepath}")
 
-# Global character manager
-_character_manager = None
-
-def get_character_manager(project_dir: Path = None) -> CharacterManager:
-    """Get character manager for current project"""
-    global _character_manager
-    
-    # Use project manager to get correct directory
-    if project_dir is None:
-        try:
-            from project_manager import get_current_project_dir
-            project_dir = get_current_project_dir()
-        except:
-            project_dir = Path(".")
-            
-    if _character_manager is None or _character_manager.project_dir != project_dir:
-        _character_manager = CharacterManager(project_dir)
-        
-    return _character_manager
+# Note: Character manager should be obtained from ProjectManager
+# to ensure proper project isolation. Use:
+# from project_manager import get_project_manager
+# pm = get_project_manager()
+# character_manager = pm.get_character_manager()

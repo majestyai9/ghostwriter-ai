@@ -162,10 +162,19 @@ class AnthropicProvider(LLMProvider):
                     raise
                     
     def count_tokens(self, text: str) -> int:
-        """Estimate token count for Claude (rough approximation)"""
-        # Claude uses a different tokenizer, this is a rough estimate
-        # Approximately 1 token per 4 characters
-        return len(text) // 4
+        """Count tokens using Anthropic's token counting API"""
+        try:
+            # Use the official token counting method
+            response = self.client.beta.messages.count_tokens(
+                betas=["token-counting-2024-11-01"],
+                model=self.model,
+                messages=[{"role": "user", "content": text}]
+            )
+            return response.input_tokens
+        except Exception as e:
+            self.logger.warning(f"Token counting failed, using fallback: {e}")
+            # Fallback to rough approximation
+            return len(text) // 4
         
     def get_model_info(self) -> Dict[str, Any]:
         """Get Anthropic model information"""
