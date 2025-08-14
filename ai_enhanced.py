@@ -2,14 +2,15 @@
 Enhanced AI module with streaming, caching, and optimization
 """
 import logging
-from typing import List, Dict, Any, Generator, Optional
-from providers import get_provider, LLMProvider
-from exceptions import ContentGenerationError
-from events import event_manager, Event, EventType
-from cache_manager import get_cache, cached
-from token_optimizer import get_optimizer, BookContextManager
-from streaming import streaming_manager, StreamChunk
+from collections.abc import Generator
+from typing import Any, Dict, List
+
 import config
+from cache_manager import get_cache
+from events import Event, EventType, event_manager
+from providers import LLMProvider, get_provider
+from streaming import streaming_manager
+from token_optimizer import BookContextManager, get_optimizer
 
 # Initialize components
 provider: LLMProvider = None
@@ -19,22 +20,22 @@ optimizer = None
 def initialize_enhanced():
     """Initialize enhanced AI components"""
     global provider, cache, optimizer
-    
+
     try:
         # Initialize provider
         provider = get_provider(config=config.PROVIDER_CONFIG)
         logging.info(f"Initialized {config.LLM_PROVIDER} provider")
-        
+
         # Initialize cache
         cache_backend = config.__dict__.get('CACHE_BACKEND', 'memory')
         cache = get_cache()
-        
+
         # Initialize optimizer
         optimizer = get_optimizer()
         optimizer.provider = provider
-        
+
         logging.info("Enhanced AI components initialized")
-        
+
     except Exception as e:
         logging.error(f"Failed to initialize enhanced AI: {e}")
         raise
@@ -71,7 +72,7 @@ def generate_with_cache(prompt: str,
             max_tokens=max_tokens,
             temperature=temperature
         )
-        
+
     # Try to get from cache
     cached_result = cache.get(cache_key)
     if cached_result is not None:
@@ -81,14 +82,14 @@ def generate_with_cache(prompt: str,
             'cache_key': cache_key
         }))
         return cached_result
-        
+
     # Generate new content
     logging.info(f"Cache miss, generating new content: {cache_key}")
-    
+
     # Optimize context if needed
     if history:
         history = optimizer.optimize_messages(history, max_tokens)
-        
+
     # Generate
     response = provider.generate(
         prompt=prompt,
@@ -97,10 +98,10 @@ def generate_with_cache(prompt: str,
         temperature=temperature,
         **kwargs
     )
-    
+
     # Cache result
     cache.set(cache_key, response.content, cache_expire)
-    
+
     return response.content
 
 def generate_stream(prompt: str,
@@ -123,18 +124,18 @@ def generate_stream(prompt: str,
         Text chunks as generated
     """
     import uuid
-    
+
     if not stream_id:
         stream_id = str(uuid.uuid4())
-        
+
     # Optimize context if needed
     if history:
         history = optimizer.optimize_messages(history, max_tokens)
-        
+
     # Check if provider supports streaming
     if hasattr(provider, 'generate_stream'):
         logging.info(f"Starting stream generation: {stream_id}")
-        
+
         # Get raw stream from provider
         raw_stream = provider.generate_stream(
             prompt=prompt,
@@ -143,7 +144,7 @@ def generate_stream(prompt: str,
             temperature=temperature,
             **kwargs
         )
-        
+
         # Wrap with streaming manager
         for chunk in streaming_manager.create_stream(stream_id, raw_stream):
             if not chunk.is_final:
@@ -154,7 +155,7 @@ def generate_stream(prompt: str,
                     'stream_id': stream_id,
                     'total_chunks': chunk.metadata.get('total_chunks', 0)
                 }))
-                
+
     else:
         # Fallback to non-streaming
         logging.info("Provider doesn't support streaming, using fallback")
@@ -184,34 +185,34 @@ def generate_book_optimized(book: Dict[str, Any],
         Updated book after each step
     """
     from generate import write_book
-    
+
     # Initialize book context manager
     book_manager = BookContextManager()
-    
+
     # Original system message
     original_message = {
         "role": "system",
         "content": f"You are a book writer, writing a new book in {language}."
     }
-    
+
     # Track chapter for context optimization
     current_chapter_idx = 0
-    
+
     # Custom generate function with optimizations
     def optimized_generate(prompt, history, short=False, force_max=False):
         # Prepare optimized context
         optimized_history = book_manager.prepare_context(
-            book, 
+            book,
             current_chapter=current_chapter_idx,
             window_size=5
         )
-        
+
         # Merge with provided history
         if history and len(history) > 1:
             optimized_history.extend(history[1:])  # Skip duplicate system message
-            
+
         max_tokens = config.MAX_TOKENS_SHORT if short else config.MAX_TOKENS
-        
+
         if use_cache:
             # Generate cache key based on book context
             cache_key = cache.create_key(
@@ -220,7 +221,7 @@ def generate_book_optimized(book: Dict[str, Any],
                 chapter=current_chapter_idx,
                 prompt_hash=hash(prompt[:100])
             )
-            
+
             return generate_with_cache(
                 prompt=prompt,
                 history=optimized_history,
@@ -249,12 +250,12 @@ def generate_book_optimized(book: Dict[str, Any],
                 temperature=config.TEMPERATURE
             )
             return response.content
-            
+
     # Monkey-patch the generate module to use our optimized function
     import generate
     original_callLLM = generate.callLLM
     generate.callLLM = optimized_generate
-    
+
     try:
         # Generate book with optimizations
         for updated_book in write_book(book, title, instructions, language):
@@ -265,41 +266,41 @@ def generate_book_optimized(book: Dict[str, Any],
                     if ch.get('content')
                 )
                 current_chapter_idx = completed_chapters
-                
+
             yield updated_book
-            
+
     finally:
         # Restore original function
         generate.callLLM = original_callLLM
 
 class EnhancedAI:
     """Enhanced AI interface with all optimizations"""
-    
+
     def __init__(self):
         self.provider = provider
         self.cache = cache
         self.optimizer = optimizer
         self.book_manager = BookContextManager()
-        
+
     def generate(self, *args, **kwargs):
         """Standard generation with caching"""
         return generate_with_cache(*args, **kwargs)
-        
+
     def stream(self, *args, **kwargs):
         """Streaming generation"""
         return generate_stream(*args, **kwargs)
-        
+
     def generate_book(self, *args, **kwargs):
         """Optimized book generation"""
         return generate_book_optimized(*args, **kwargs)
-        
+
     def clear_cache(self, pattern: str = None):
         """Clear cache"""
         if pattern:
             self.cache.invalidate_pattern(pattern)
         else:
             self.cache.clear()
-            
+
     def get_stats(self) -> Dict[str, Any]:
         """Get statistics"""
         return {

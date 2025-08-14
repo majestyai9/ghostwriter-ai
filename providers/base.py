@@ -1,12 +1,14 @@
 """
 Base LLM Provider Interface
 """
-from abc import ABC, abstractmethod
-from typing import List, Dict, Any, Optional, Generator, Callable
-from dataclasses import dataclass
 import logging
-import time
 import random
+import time
+from abc import ABC, abstractmethod
+from collections.abc import Generator
+from dataclasses import dataclass
+from typing import Any, Callable, Dict, List, Optional
+
 
 @dataclass
 class LLMResponse:
@@ -19,7 +21,7 @@ class LLMResponse:
 
 class LLMProvider(ABC):
     """Abstract base class for LLM providers"""
-    
+
     def __init__(self, config: Dict[str, Any]):
         """
         Initialize provider with configuration
@@ -30,14 +32,14 @@ class LLMProvider(ABC):
         self.config = config
         self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
         self._validate_config()
-        
+
     @abstractmethod
     def _validate_config(self):
         """Validate provider configuration"""
         pass
-        
+
     @abstractmethod
-    def generate(self, 
+    def generate(self,
                 prompt: str,
                 history: List[Dict[str, str]] = None,
                 max_tokens: int = 1024,
@@ -57,7 +59,7 @@ class LLMProvider(ABC):
             LLMResponse object
         """
         pass
-        
+
     @abstractmethod
     def count_tokens(self, text: str) -> int:
         """
@@ -70,7 +72,7 @@ class LLMProvider(ABC):
             Number of tokens
         """
         pass
-        
+
     @abstractmethod
     def get_model_info(self) -> Dict[str, Any]:
         """
@@ -80,7 +82,7 @@ class LLMProvider(ABC):
             Dictionary with model information
         """
         pass
-        
+
     def validate_token_limit(self, messages: List[Dict[str, str]], max_tokens: int) -> bool:
         """
         Check if messages fit within token limit
@@ -94,7 +96,7 @@ class LLMProvider(ABC):
         """
         total_tokens = sum(self.count_tokens(msg.get('content', '')) for msg in messages)
         return total_tokens + max_tokens <= self.get_model_info().get('max_tokens', 4096)
-        
+
     def prepare_messages(self, prompt: str, history: List[Dict[str, str]] = None) -> List[Dict[str, str]]:
         """
         Prepare messages for API call
@@ -109,7 +111,7 @@ class LLMProvider(ABC):
         messages = history.copy() if history else []
         messages.append({"role": "user", "content": prompt})
         return messages
-        
+
     def generate_stream(self,
                        prompt: str,
                        history: List[Dict[str, str]] = None,
@@ -131,7 +133,7 @@ class LLMProvider(ABC):
         # Default implementation: yield complete response
         response = self.generate(prompt, history, max_tokens, temperature, **kwargs)
         yield response.content
-    
+
     def _call_with_retry(self,
                         api_call: Callable,
                         max_retries: int = 3,
@@ -162,33 +164,33 @@ class LLMProvider(ABC):
         """
         retry_on = retry_on or [Exception]
         last_exception = None
-        
+
         for attempt in range(max_retries):
             try:
                 return api_call(**kwargs)
-                
+
             except tuple(retry_on) as e:
                 last_exception = e
-                
+
                 if attempt < max_retries - 1:
                     # Calculate delay with exponential backoff
                     delay = min(base_delay * (exponential_base ** attempt), max_delay)
-                    
+
                     # Add jitter if requested
                     if jitter:
                         delay = delay * (0.5 + random.random())
-                    
+
                     self.logger.warning(
                         f"Attempt {attempt + 1}/{max_retries} failed: {e}. "
                         f"Retrying in {delay:.2f} seconds..."
                     )
-                    
+
                     time.sleep(delay)
                 else:
                     self.logger.error(f"All {max_retries} attempts failed. Last error: {e}")
-                    
+
         raise last_exception
-    
+
     def _should_retry(self, exception: Exception) -> bool:
         """
         Determine if an exception should trigger a retry
@@ -212,5 +214,5 @@ class LLMProvider(ABC):
             '503',  # Service Unavailable
             '504',  # Gateway Timeout
         ]
-        
+
         return any(pattern in error_str for pattern in retryable_patterns)

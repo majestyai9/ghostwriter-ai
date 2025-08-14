@@ -1,4 +1,3 @@
-import config
 
 def title(title_string):
     return (f'''
@@ -66,7 +65,7 @@ You need to write a summary to the book with instructions:
 Generate two plain text paragraphs in YourLanguage summarizing the book {book["title"]}.
 The summary should be two single paragraphs, without any links, images or headers.
 Here is the summary of the book:
-'''.strip();
+'''.strip()
 
 def chapter_topics(book, chapter, toc_text):
     return (f'''

@@ -4,16 +4,18 @@ Refactored generate module with BookGenerator class
 import json
 import logging
 import re
-from typing import Generator, Dict, Any, List, Optional
+from collections.abc import Generator
+from typing import Any, Dict, List, Optional
+
 import prompts
 from ai import callLLM
+from events import Event, EventType, event_manager
 from exceptions import ContentGenerationError, ValidationError
-from events import event_manager, Event, EventType
 
 
 class BookGenerator:
     """Class to manage book generation with reduced code duplication"""
-    
+
     def __init__(self, book: Dict[str, Any], history: List[Dict[str, str]]):
         """
         Initialize BookGenerator
@@ -25,28 +27,28 @@ class BookGenerator:
         self.book = book
         self.history = history
         self.logger = logging.getLogger(__name__)
-        
+
     def _limit_text(self, text: str, limit: int = 200) -> str:
         """Helper to limit text length for logging"""
         if len(text) > limit:
             return text[:limit] + "..."
         return text
-    
+
     def _extract_json(self, text: str) -> str:
         """Extract JSON from text that may contain additional content"""
         # Try to find JSON block with markdown code blocks
         json_match = re.search(r'```(?:json)?\s*(\{.*?\}|\[.*?\])\s*```', text, re.DOTALL)
         if json_match:
             return json_match.group(1)
-        
+
         # Try to find raw JSON object or array
         json_match = re.search(r'(\{.*\}|\[.*\])', text, re.DOTALL)
         if json_match:
             return json_match.group(1)
-        
+
         # If no match, return original text
         return text
-    
+
     def _toc_to_text(self, toc: Dict, highlight_chapter: Optional[Dict] = None) -> str:
         """Convert TOC to text format"""
         text = ""
@@ -58,7 +60,7 @@ class BookGenerator:
             else:
                 text += f"    ({len(chapter['sections'])} sections here...)\n"
         return text
-    
+
     def _generate_part(self,
                       part_name: str,
                       part_key: str,
@@ -94,12 +96,12 @@ class BookGenerator:
         """
         check_key = existing_check_key or part_key
         event_data = event_data or {}
-        
+
         try:
             if not self._get_nested_value(check_key):
                 self.logger.info(f"# Generating new {part_name}...")
                 event_manager.emit(Event(event_started, event_data))
-                
+
                 # Call LLM
                 response = callLLM(
                     prompt_func(),
@@ -107,7 +109,7 @@ class BookGenerator:
                     waitingShortAnswer=wait_short,
                     forceMaximum=force_max
                 )
-                
+
                 # Process response
                 if parse_json:
                     cleaned = self._extract_json(response)
@@ -119,38 +121,38 @@ class BookGenerator:
                         raise ValidationError(f"Invalid {part_name} format: {e}")
                 else:
                     value = response
-                
+
                 # Validate if needed
                 if validate_func:
                     validate_func(value)
-                
+
                 # Set value in book
                 self._set_nested_value(part_key, value)
-                
+
                 # Log result
                 if parse_json:
                     self.logger.info(f"{part_name}:\n{self._format_value(value)}")
                 else:
                     self.logger.info(f"# New {part_name}: {self._limit_text(value)}")
-                
+
                 # Emit completion event
                 completion_data = {**event_data, part_key: value}
                 if not parse_json:
                     completion_data[f'{part_key}_length'] = len(value)
-                    
+
                 event_manager.emit(Event(event_completed, completion_data))
                 yield self.book
-                
+
             else:
                 existing_value = self._get_nested_value(check_key)
                 self.logger.info(f"# {part_name} already defined: {self._limit_text(str(existing_value))}")
-                
+
                 if update_history:
                     history_msg = f"{part_name}: {self._format_value(existing_value)}"
                     self.history.append({"role": "system", "content": history_msg})
-            
+
             self.logger.info("")
-            
+
         except ContentGenerationError:
             raise
         except Exception as e:
@@ -160,7 +162,7 @@ class BookGenerator:
                 'error': str(e)
             }))
             raise ContentGenerationError(f"{part_name} generation failed: {e}")
-    
+
     def _get_nested_value(self, key: str) -> Any:
         """Get nested value from book using dot notation"""
         parts = key.split('.')
@@ -171,7 +173,7 @@ class BookGenerator:
             else:
                 return None
         return value
-    
+
     def _set_nested_value(self, key: str, value: Any):
         """Set nested value in book using dot notation"""
         parts = key.split('.')
@@ -181,7 +183,7 @@ class BookGenerator:
                 target[part] = {}
             target = target[part]
         target[parts[-1]] = value
-    
+
     def _format_value(self, value: Any) -> str:
         """Format value for display"""
         if isinstance(value, dict):
@@ -191,7 +193,7 @@ class BookGenerator:
         elif isinstance(value, list):
             return '\n'.join(str(item) for item in value)
         return str(value)
-    
+
     def generate_title(self, original_title: str) -> Generator:
         """Generate book title"""
         yield from self._generate_part(
@@ -203,16 +205,16 @@ class BookGenerator:
             event_data={'original_title': original_title},
             wait_short=True
         )
-        
+
         # Update history with title
         self.history[0]["content"] += f' The title of the book is "{self.book["title"]}"'
-    
+
     def generate_toc(self, instructions: str) -> Generator:
         """Generate table of contents"""
         def validate_toc(toc):
             if not isinstance(toc, dict) or "chapters" not in toc:
                 raise ValidationError("TOC must contain 'chapters' key")
-        
+
         yield from self._generate_part(
             part_name="table of contents",
             part_key="toc",
@@ -223,7 +225,7 @@ class BookGenerator:
             parse_json=True,
             validate_func=validate_toc
         )
-    
+
     def generate_summary(self, instructions: str) -> Generator:
         """Generate book summary"""
         yield from self._generate_part(
@@ -236,18 +238,18 @@ class BookGenerator:
             wait_short=True,
             force_max=True
         )
-        
+
         # Update history with summary
         self.history[0]["content"] += f' The summary of the book is: "{self.book["summary"]}"'
-    
+
     def generate_chapter(self, chapter: Dict[str, Any]) -> Generator:
         """Generate chapter content"""
         chapter_desc = f'"{chapter["number"]}. {chapter["title"]}"'
         chapter_toc = self._toc_to_text(self.book["toc"], chapter)
-        
+
         # Store reference to current chapter
         self.current_chapter = chapter
-        
+
         # Generate topics
         if not chapter.get('topics'):
             self.logger.info(f"# Generating topics for chapter {chapter_desc}...")
@@ -257,7 +259,7 @@ class BookGenerator:
                 waitingShortAnswer=True
             )
             self.logger.info(f"Topics: {chapter['topics']}")
-        
+
         # Generate content
         yield from self._generate_part(
             part_name=f"chapter {chapter_desc}",
@@ -272,15 +274,15 @@ class BookGenerator:
             existing_check_key=f"chapter_{chapter['number']}_content",
             force_max=True
         )
-        
+
         # Update chapter content in the actual location
         chapter["content"] = self._get_nested_value(f"chapter_{chapter['number']}_content")
-        
+
     def generate_section(self, chapter: Dict[str, Any], section: Dict[str, Any]) -> Generator:
         """Generate section content"""
         section_desc = f'"{chapter["number"]}.{section["number"]}. {section["title"]}"'
         chapter_toc = self._toc_to_text(self.book["toc"], chapter)
-        
+
         # Generate topics
         if not section.get('topics'):
             self.logger.info(f"# Generating topics for section {section_desc}...")
@@ -290,7 +292,7 @@ class BookGenerator:
                 waitingShortAnswer=True
             )
             self.logger.info(f"Topics: {section['topics']}")
-        
+
         # Generate content
         yield from self._generate_part(
             part_name=f"section {section_desc}",
@@ -306,12 +308,12 @@ class BookGenerator:
             existing_check_key=f"section_{chapter['number']}_{section['number']}_content",
             force_max=True
         )
-        
+
         # Update section content in the actual location
         section["content"] = self._get_nested_value(f"section_{chapter['number']}_{section['number']}_content")
 
 
-def write_book(book: Dict[str, Any], instructions: str, 
+def write_book(book: Dict[str, Any], instructions: str,
                title: str, language: str = "English") -> Generator[Dict[str, Any], None, None]:
     """
     Main function to generate book using BookGenerator class
@@ -329,26 +331,26 @@ def write_book(book: Dict[str, Any], instructions: str,
         "role": "system",
         "content": f"You are writing a book in {language}."
     }]
-    
+
     # Create generator instance
     generator = BookGenerator(book, history)
-    
+
     # Generate title
     yield from generator.generate_title(title)
-    
+
     # Generate TOC
     yield from generator.generate_toc(instructions)
-    
+
     # Generate summary
     yield from generator.generate_summary(instructions)
-    
+
     # Generate chapters and sections
     for chapter in book["toc"]["chapters"]:
         yield from generator.generate_chapter(chapter)
-        
+
         for section in chapter["sections"]:
             yield from generator.generate_section(chapter, section)
-    
+
     # Final yield
     yield book
 

@@ -1,15 +1,17 @@
 """
 Prompt management using templates
 """
-import yaml
-from pathlib import Path
-from typing import Dict, Any, Optional
-from string import Template
 import logging
+from pathlib import Path
+from string import Template
+from typing import Any, Dict
+
+import yaml
+
 
 class PromptManager:
     """Manages prompts using external templates"""
-    
+
     def __init__(self, template_file: str = "templates/prompts.yaml"):
         """
         Initialize PromptManager
@@ -21,12 +23,12 @@ class PromptManager:
         self.templates = {}
         self.logger = logging.getLogger(__name__)
         self._load_templates()
-    
+
     def _load_templates(self):
         """Load templates from YAML file"""
         try:
             if self.template_file.exists():
-                with open(self.template_file, 'r', encoding='utf-8') as f:
+                with open(self.template_file, encoding='utf-8') as f:
                     data = yaml.safe_load(f)
                     for key, value in data.items():
                         if isinstance(value, dict) and 'template' in value:
@@ -40,7 +42,7 @@ class PromptManager:
         except Exception as e:
             self.logger.error(f"Failed to load templates: {e}")
             self._use_fallback_templates()
-    
+
     def _use_fallback_templates(self):
         """Use built-in templates as fallback"""
         self.templates = {
@@ -52,7 +54,7 @@ class PromptManager:
             'section_topics': 'Topics for Section {section_number}: {section_title}',
             'section': 'Write Section {section_number}: {section_title}'
         }
-    
+
     def render(self, template_name: str, **kwargs) -> str:
         """
         Render a prompt template with given variables
@@ -66,34 +68,34 @@ class PromptManager:
         """
         if template_name not in self.templates:
             raise ValueError(f"Template '{template_name}' not found")
-        
+
         template = self.templates[template_name]
-        
+
         # Use safe substitution to avoid KeyError for missing variables
         try:
             # Try format first (supports {var} syntax)
             return template.format(**kwargs)
         except KeyError as e:
-            # Fall back to Template (supports $var syntax) 
+            # Fall back to Template (supports $var syntax)
             self.logger.warning(f"Missing variable in template: {e}")
             tmpl = Template(template)
             return tmpl.safe_substitute(**kwargs)
-    
+
     def get_template(self, template_name: str) -> str:
         """Get raw template string"""
         return self.templates.get(template_name, "")
-    
+
     def update_template(self, template_name: str, template: str):
         """Update a template at runtime"""
         self.templates[template_name] = template
-    
+
     def save_templates(self):
         """Save current templates back to YAML file"""
         data = {
             name: {'template': template}
             for name, template in self.templates.items()
         }
-        
+
         self.template_file.parent.mkdir(exist_ok=True)
         with open(self.template_file, 'w', encoding='utf-8') as f:
             yaml.dump(data, f, default_flow_style=False, allow_unicode=True)
@@ -124,11 +126,11 @@ def table_of_contents(instructions: str) -> str:
 def summary(book: Dict[str, Any], instructions: str) -> str:
     """Generate summary prompt"""
     pm = get_prompt_manager()
-    return pm.render('summary', 
+    return pm.render('summary',
                     title=book.get('title', 'Untitled'),
                     instructions=instructions)
 
-def chapter_topics(book: Dict[str, Any], chapter: Dict[str, Any], 
+def chapter_topics(book: Dict[str, Any], chapter: Dict[str, Any],
                   toc_context: str) -> str:
     """Generate chapter topics prompt"""
     pm = get_prompt_manager()
@@ -138,7 +140,7 @@ def chapter_topics(book: Dict[str, Any], chapter: Dict[str, Any],
                     chapter_title=chapter['title'],
                     toc_context=toc_context)
 
-def chapter(book: Dict[str, Any], chapter: Dict[str, Any], 
+def chapter(book: Dict[str, Any], chapter: Dict[str, Any],
            toc_context: str) -> str:
     """Generate chapter content prompt"""
     pm = get_prompt_manager()

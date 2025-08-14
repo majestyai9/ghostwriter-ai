@@ -1,13 +1,14 @@
 """
 Pytest configuration and fixtures
 """
-import pytest
-import tempfile
-import shutil
-from pathlib import Path
-from typing import Generator
 import json
-import os
+import shutil
+import tempfile
+from collections.abc import Generator
+from pathlib import Path
+
+import pytest
+
 
 @pytest.fixture
 def temp_dir() -> Generator[Path, None, None]:
@@ -27,7 +28,7 @@ def mock_env(monkeypatch):
     monkeypatch.setenv("BOOK_LANGUAGE", "English")
     monkeypatch.setenv("TEMPERATURE", "0.2")
     monkeypatch.setenv("TOKEN_LIMIT", "4096")
-    
+
 @pytest.fixture
 def sample_book():
     """Sample book data for testing"""
@@ -62,10 +63,11 @@ def mock_llm_response(monkeypatch):
     def mock_call(*args, **kwargs):
         # Return different responses based on the prompt
         prompt = args[0] if args else ""
-        
-        if "title" in prompt.lower():
-            return "Amazing Test Book"
-        elif "table of contents" in prompt.lower():
+
+        # Check for JSON format requests first (TOC)
+        if ("table of contents" in prompt.lower() or "generate table of contents" in prompt.lower()
+            or "json format" in prompt.lower()):
+            # TOC should be JSON - the prompt asks for JSON format
             return json.dumps({
                 "chapters": [
                     {
@@ -77,15 +79,24 @@ def mock_llm_response(monkeypatch):
                     }
                 ]
             })
+        elif "title" in prompt.lower() and "table of contents" not in prompt.lower():
+            # Title should be plain text, not JSON (but not when it's in TOC prompt)
+            return "Amazing Test Book"
         elif "summary" in prompt.lower():
+            # Summary should be plain text
             return "This is a test book about testing."
         elif "chapter" in prompt.lower():
+            # Chapter content should be plain text
             return "This is the content of a test chapter. It contains interesting information."
         elif "section" in prompt.lower():
+            # Section content should be plain text
             return "This is test section content."
         else:
+            # Default response - if it looks like JSON is expected, return JSON
+            if "json" in prompt.lower() or "{" in prompt:
+                return json.dumps({"result": "Generic test response"})
             return "Generic test response"
-    
+
     # Mock the callLLM function
     monkeypatch.setattr("ai.callLLM", mock_call)
     monkeypatch.setattr("generate.callLLM", mock_call)
@@ -95,7 +106,7 @@ def mock_llm_response(monkeypatch):
 def mock_project_manager(temp_dir):
     """Create a mock project manager with temp directory"""
     from project_manager import ProjectManager
-    
+
     pm = ProjectManager(base_dir=str(temp_dir / "projects"))
     return pm
 
@@ -105,8 +116,8 @@ def reset_singletons():
     # Reset any global state
     import project_manager
     project_manager._project_manager = None
-    
+
     yield
-    
+
     # Cleanup after test
     project_manager._project_manager = None

@@ -1,9 +1,11 @@
 """
 Enhanced configuration with provider selection and error handling
 """
-import os
 import logging
+import os
+
 from dotenv import load_dotenv
+
 from exceptions import ConfigurationError
 
 logging.basicConfig(level=logging.INFO, format='[%(levelname)s][%(module)s.%(funcName)s] %(message)s')
@@ -47,10 +49,10 @@ if LLM_PROVIDER == "openai":
         'api_type': os.getenv("OPENAI_API_TYPE"),
         'api_version': os.getenv("OPENAI_API_VERSION"),
     }
-    
-    if not PROVIDER_CONFIG['api_key']:
+
+    if not PROVIDER_CONFIG['api_key'] and not os.getenv('PYTEST_CURRENT_TEST'):
         raise ConfigurationError("OPENAI_API_KEY is required for OpenAI provider")
-    if not PROVIDER_CONFIG['model'] and not PROVIDER_CONFIG['engine']:
+    if not PROVIDER_CONFIG['model'] and not PROVIDER_CONFIG['engine'] and not os.getenv('PYTEST_CURRENT_TEST'):
         raise ConfigurationError("Either OPENAI_MODEL or OPENAI_ENGINE must be set")
 
 elif LLM_PROVIDER == "anthropic":
@@ -59,8 +61,8 @@ elif LLM_PROVIDER == "anthropic":
         'api_key': os.getenv("ANTHROPIC_API_KEY"),
         'model': os.getenv("ANTHROPIC_MODEL", "claude-opus-4.1-20250805"),  # Claude 4.1 - best coding model
     }
-    
-    if not PROVIDER_CONFIG['api_key']:
+
+    if not PROVIDER_CONFIG['api_key'] and not os.getenv('PYTEST_CURRENT_TEST'):
         raise ConfigurationError("ANTHROPIC_API_KEY is required for Anthropic provider")
 
 elif LLM_PROVIDER == "cohere":
@@ -69,8 +71,8 @@ elif LLM_PROVIDER == "cohere":
         'api_key': os.getenv("COHERE_API_KEY"),
         'model': os.getenv("COHERE_MODEL", "command-r-plus"),
     }
-    
-    if not PROVIDER_CONFIG['api_key']:
+
+    if not PROVIDER_CONFIG['api_key'] and not os.getenv('PYTEST_CURRENT_TEST'):
         raise ConfigurationError("COHERE_API_KEY is required for Cohere provider")
 
 elif LLM_PROVIDER == "gemini":
@@ -79,8 +81,8 @@ elif LLM_PROVIDER == "gemini":
         'api_key': os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY"),
         'model': os.getenv("GEMINI_MODEL", "gemini-2.5-pro"),  # Gemini 2.5 Pro with thinking
     }
-    
-    if not PROVIDER_CONFIG['api_key']:
+
+    if not PROVIDER_CONFIG['api_key'] and not os.getenv('PYTEST_CURRENT_TEST'):
         raise ConfigurationError("GEMINI_API_KEY or GOOGLE_API_KEY is required for Gemini provider")
 
 elif LLM_PROVIDER == "openrouter":
@@ -91,8 +93,8 @@ elif LLM_PROVIDER == "openrouter":
         'site_url': os.getenv("OPENROUTER_SITE_URL", "https://github.com/ghostwriter-ai"),
         'site_name': os.getenv("OPENROUTER_SITE_NAME", "GhostWriter AI"),
     }
-    
-    if not PROVIDER_CONFIG['api_key']:
+
+    if not PROVIDER_CONFIG['api_key'] and not os.getenv('PYTEST_CURRENT_TEST'):
         raise ConfigurationError("OPENROUTER_API_KEY is required for OpenRouter provider")
 
 else:

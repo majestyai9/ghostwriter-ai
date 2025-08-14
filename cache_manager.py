@@ -3,12 +3,11 @@ Smart caching system for generated content
 """
 import hashlib
 import json
-import time
-import pickle
-from typing import Any, Optional, Dict, List
-from datetime import datetime, timedelta
 import logging
+import pickle
+import time
 from pathlib import Path
+from typing import Any, Dict, Optional
 
 try:
     import redis
@@ -18,31 +17,31 @@ except ImportError:
 
 class CacheBackend:
     """Abstract cache backend"""
-    
+
     def get(self, key: str) -> Optional[Any]:
         raise NotImplementedError
-        
+
     def set(self, key: str, value: Any, expire: int = None):
         raise NotImplementedError
-        
+
     def delete(self, key: str):
         raise NotImplementedError
-        
+
     def exists(self, key: str) -> bool:
         raise NotImplementedError
-        
+
     def clear(self):
         raise NotImplementedError
 
 class MemoryCache(CacheBackend):
     """In-memory cache backend with LRU eviction"""
-    
+
     def __init__(self, max_size: int = 1000):
         self.cache = {}
         self.access_times = {}
         self.max_size = max_size
         self.logger = logging.getLogger(__name__)
-        
+
     def get(self, key: str) -> Optional[Any]:
         if key in self.cache:
             entry = self.cache[key]
@@ -52,26 +51,26 @@ class MemoryCache(CacheBackend):
             self.access_times[key] = time.time()
             return entry['value']
         return None
-        
+
     def set(self, key: str, value: Any, expire: int = None):
         # LRU eviction if needed
         if len(self.cache) >= self.max_size and key not in self.cache:
             lru_key = min(self.access_times, key=self.access_times.get)
             del self.cache[lru_key]
             del self.access_times[lru_key]
-            
+
         self.cache[key] = {
             'value': value,
             'expire': time.time() + expire if expire else None,
             'created': time.time()
         }
         self.access_times[key] = time.time()
-        
+
     def delete(self, key: str):
         if key in self.cache:
             del self.cache[key]
             del self.access_times[key]
-            
+
     def exists(self, key: str) -> bool:
         if key in self.cache:
             entry = self.cache[key]
@@ -80,18 +79,18 @@ class MemoryCache(CacheBackend):
                 return False
             return True
         return False
-        
+
     def clear(self):
         self.cache.clear()
         self.access_times.clear()
 
 class RedisCache(CacheBackend):
     """Redis cache backend"""
-    
+
     def __init__(self, host='localhost', port=6379, db=0, password=None):
         if not REDIS_AVAILABLE:
             raise ImportError("Redis not available. Install with: pip install redis")
-            
+
         self.client = redis.StrictRedis(
             host=host,
             port=port,
@@ -100,7 +99,7 @@ class RedisCache(CacheBackend):
             decode_responses=False
         )
         self.logger = logging.getLogger(__name__)
-        
+
     def get(self, key: str) -> Optional[Any]:
         try:
             value = self.client.get(key)
@@ -109,7 +108,7 @@ class RedisCache(CacheBackend):
         except Exception as e:
             self.logger.error(f"Redis get error: {e}")
         return None
-        
+
     def set(self, key: str, value: Any, expire: int = None):
         try:
             serialized = pickle.dumps(value)
@@ -119,20 +118,20 @@ class RedisCache(CacheBackend):
                 self.client.set(key, serialized)
         except Exception as e:
             self.logger.error(f"Redis set error: {e}")
-            
+
     def delete(self, key: str):
         try:
             self.client.delete(key)
         except Exception as e:
             self.logger.error(f"Redis delete error: {e}")
-            
+
     def exists(self, key: str) -> bool:
         try:
             return bool(self.client.exists(key))
         except Exception as e:
             self.logger.error(f"Redis exists error: {e}")
             return False
-            
+
     def clear(self):
         try:
             self.client.flushdb()
@@ -141,32 +140,32 @@ class RedisCache(CacheBackend):
 
 class FileCache(CacheBackend):
     """File-based cache backend"""
-    
+
     def __init__(self, cache_dir: str = ".cache"):
         self.cache_dir = Path(cache_dir)
         self.cache_dir.mkdir(exist_ok=True)
         self.logger = logging.getLogger(__name__)
         self.index_file = self.cache_dir / "index.json"
         self.index = self._load_index()
-        
+
     def _load_index(self) -> Dict:
         if self.index_file.exists():
             try:
-                with open(self.index_file, 'r') as f:
+                with open(self.index_file) as f:
                     return json.load(f)
             except:
                 pass
         return {}
-        
+
     def _save_index(self):
         with open(self.index_file, 'w') as f:
             json.dump(self.index, f)
-            
+
     def _get_file_path(self, key: str) -> Path:
         # Use hash to avoid filesystem issues with special characters
         key_hash = hashlib.md5(key.encode()).hexdigest()
         return self.cache_dir / f"{key_hash}.cache"
-        
+
     def get(self, key: str) -> Optional[Any]:
         file_path = self._get_file_path(key)
         if file_path.exists():
@@ -176,20 +175,20 @@ class FileCache(CacheBackend):
                 if expire and expire < time.time():
                     self.delete(key)
                     return None
-                    
+
             try:
                 with open(file_path, 'rb') as f:
                     return pickle.load(f)
             except Exception as e:
                 self.logger.error(f"File cache read error: {e}")
         return None
-        
+
     def set(self, key: str, value: Any, expire: int = None):
         file_path = self._get_file_path(key)
         try:
             with open(file_path, 'wb') as f:
                 pickle.dump(value, f)
-                
+
             self.index[key] = {
                 'expire': time.time() + expire if expire else None,
                 'created': time.time(),
@@ -198,7 +197,7 @@ class FileCache(CacheBackend):
             self._save_index()
         except Exception as e:
             self.logger.error(f"File cache write error: {e}")
-            
+
     def delete(self, key: str):
         file_path = self._get_file_path(key)
         if file_path.exists():
@@ -206,7 +205,7 @@ class FileCache(CacheBackend):
         if key in self.index:
             del self.index[key]
             self._save_index()
-            
+
     def exists(self, key: str) -> bool:
         if key in self.index:
             expire = self.index[key].get('expire')
@@ -215,7 +214,7 @@ class FileCache(CacheBackend):
                 return False
             return self._get_file_path(key).exists()
         return False
-        
+
     def clear(self):
         for file in self.cache_dir.glob("*.cache"):
             file.unlink()
@@ -224,7 +223,7 @@ class FileCache(CacheBackend):
 
 class CacheManager:
     """Smart cache manager with multiple backends and strategies"""
-    
+
     def __init__(self, backend: str = 'memory', **backend_kwargs):
         """
         Initialize cache manager
@@ -234,21 +233,21 @@ class CacheManager:
             **backend_kwargs: Backend-specific configuration
         """
         self.logger = logging.getLogger(__name__)
-        
+
         if backend == 'redis' and REDIS_AVAILABLE:
             self.backend = RedisCache(**backend_kwargs)
         elif backend == 'file':
             self.backend = FileCache(**backend_kwargs)
         else:
             self.backend = MemoryCache(**backend_kwargs)
-            
+
         self.stats = {
             'hits': 0,
             'misses': 0,
             'sets': 0,
             'deletes': 0
         }
-        
+
     def create_key(self, prefix: str, **params) -> str:
         """
         Create a cache key from parameters
@@ -265,7 +264,7 @@ class CacheManager:
         param_str = json.dumps(sorted_params, sort_keys=True)
         param_hash = hashlib.md5(param_str.encode()).hexdigest()[:12]
         return f"{prefix}:{param_hash}"
-        
+
     def get(self, key: str, default=None) -> Optional[Any]:
         """Get value from cache"""
         value = self.backend.get(key)
@@ -277,7 +276,7 @@ class CacheManager:
             self.stats['misses'] += 1
             self.logger.debug(f"Cache miss: {key}")
             return default
-            
+
     def set(self, key: str, value: Any, expire: int = 3600):
         """
         Set value in cache
@@ -290,22 +289,22 @@ class CacheManager:
         self.backend.set(key, value, expire)
         self.stats['sets'] += 1
         self.logger.debug(f"Cache set: {key} (expire: {expire}s)")
-        
+
     def delete(self, key: str):
         """Delete value from cache"""
         self.backend.delete(key)
         self.stats['deletes'] += 1
         self.logger.debug(f"Cache delete: {key}")
-        
+
     def exists(self, key: str) -> bool:
         """Check if key exists in cache"""
         return self.backend.exists(key)
-        
+
     def clear(self):
         """Clear all cache"""
         self.backend.clear()
         self.logger.info("Cache cleared")
-        
+
     def invalidate_pattern(self, pattern: str):
         """
         Invalidate cache keys matching pattern
@@ -316,12 +315,12 @@ class CacheManager:
         # This is backend-specific and more complex
         # For now, just log
         self.logger.info(f"Pattern invalidation requested: {pattern}")
-        
+
     def get_stats(self) -> Dict[str, Any]:
         """Get cache statistics"""
         total = self.stats['hits'] + self.stats['misses']
         hit_rate = (self.stats['hits'] / total * 100) if total > 0 else 0
-        
+
         return {
             **self.stats,
             'hit_rate': f"{hit_rate:.2f}%",
@@ -342,7 +341,7 @@ def cached(expire: int = 3600, key_prefix: str = None):
             # Get or create cache manager
             if not hasattr(wrapper, 'cache'):
                 wrapper.cache = CacheManager()
-                
+
             # Create cache key
             prefix = key_prefix or func.__name__
             cache_key = wrapper.cache.create_key(
@@ -350,17 +349,17 @@ def cached(expire: int = 3600, key_prefix: str = None):
                 args=str(args),
                 kwargs=str(kwargs)
             )
-            
+
             # Try to get from cache
             result = wrapper.cache.get(cache_key)
             if result is not None:
                 return result
-                
+
             # Generate and cache
             result = func(*args, **kwargs)
             wrapper.cache.set(cache_key, result, expire)
             return result
-            
+
         wrapper.__name__ = func.__name__
         return wrapper
     return decorator

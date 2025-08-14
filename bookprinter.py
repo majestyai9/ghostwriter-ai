@@ -1,13 +1,13 @@
 def markdown_hash(title):
     title = title.lower()
-    
+
     result = []
     for char in title:
         if char.isalnum():
             result.append(char)
         elif char == ' ' or char == '-':
             result.append('-')
-    
+
     return '#' + ''.join(result)
 
 
@@ -25,7 +25,7 @@ def create_book_frontpage(book_base_dir, book):
     with open(frontpage_file, "w") as f:
         f.write(f"# {title}\n\n")
         f.write(f"{summary}\n\n")
-        f.write(f"## Índice\n\n")
+        f.write("## Índice\n\n")
 
         for chapter in toc["chapters"]:
             chapter_number = chapter['number']

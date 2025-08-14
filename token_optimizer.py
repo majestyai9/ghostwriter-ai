@@ -2,10 +2,10 @@
 Token optimization with sliding window context management
 """
 import logging
-from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import dataclass
 from enum import Enum
-import json
+from typing import Any, Dict, List, Optional
+
 
 class ContextPriority(Enum):
     """Priority levels for context elements"""
@@ -21,10 +21,10 @@ class ContextElement:
     tokens: int
     priority: ContextPriority
     metadata: Dict[str, Any]
-    
+
 class SlidingWindowManager:
     """Manages context with sliding window optimization"""
-    
+
     def __init__(self, max_tokens: int = 128000, reserved_tokens: int = 4096):
         """
         Initialize sliding window manager
@@ -37,8 +37,8 @@ class SlidingWindowManager:
         self.reserved_tokens = reserved_tokens
         self.available_tokens = max_tokens - reserved_tokens
         self.logger = logging.getLogger(__name__)
-        
-    def optimize_context(self, 
+
+    def optimize_context(self,
                         elements: List[ContextElement],
                         current_tokens: int = 0) -> List[ContextElement]:
         """
@@ -52,16 +52,16 @@ class SlidingWindowManager:
             Optimized list of context elements
         """
         available = self.available_tokens - current_tokens
-        
+
         # Sort by priority and metadata
         sorted_elements = sorted(
             elements,
             key=lambda x: (x.priority.value, -x.metadata.get('recency', 0))
         )
-        
+
         optimized = []
         used_tokens = 0
-        
+
         for element in sorted_elements:
             if used_tokens + element.tokens <= available:
                 optimized.append(element)
@@ -72,12 +72,12 @@ class SlidingWindowManager:
                 if compressed:
                     optimized.append(compressed)
                     used_tokens += compressed.tokens
-                    
+
         self.logger.info(f"Context optimized: {len(elements)} -> {len(optimized)} elements, "
                         f"{used_tokens}/{available} tokens used")
-        
+
         return optimized
-        
+
     def _compress_element(self, element: ContextElement, max_tokens: int) -> Optional[ContextElement]:
         """
         Compress an element to fit within token limit
@@ -91,33 +91,33 @@ class SlidingWindowManager:
         """
         if element.tokens <= max_tokens:
             return element
-            
+
         # Simple truncation for now - could use summarization
         content = element.content
         while self._estimate_tokens(content) > max_tokens and len(content) > 100:
             content = content[:int(len(content) * 0.9)] + "..."
-            
+
         if len(content) < 100:
             return None
-            
+
         return ContextElement(
             content=content,
             tokens=self._estimate_tokens(content),
             priority=element.priority,
             metadata={**element.metadata, 'compressed': True}
         )
-        
+
     def _estimate_tokens(self, text: str) -> int:
         """Estimate token count (rough approximation)"""
         return len(text) // 4
 
 class BookContextManager:
     """Manages context specifically for book generation"""
-    
+
     def __init__(self, max_tokens: int = 128000):
         self.window_manager = SlidingWindowManager(max_tokens)
         self.logger = logging.getLogger(__name__)
-        
+
     def prepare_context(self,
                        book: Dict[str, Any],
                        current_chapter: int = None,
@@ -134,7 +134,7 @@ class BookContextManager:
             Optimized context as message list
         """
         elements = []
-        
+
         # Essential elements (always included)
         elements.append(ContextElement(
             content=f"Title: {book.get('title', 'Untitled')}",
@@ -142,7 +142,7 @@ class BookContextManager:
             priority=ContextPriority.ESSENTIAL,
             metadata={'type': 'title'}
         ))
-        
+
         if book.get('summary'):
             elements.append(ContextElement(
                 content=f"Summary: {book['summary']}",
@@ -150,7 +150,7 @@ class BookContextManager:
                 priority=ContextPriority.ESSENTIAL,
                 metadata={'type': 'summary'}
             ))
-            
+
         # Table of contents (compressed)
         if book.get('toc'):
             toc_text = self._format_toc(book['toc'], highlight_chapter=current_chapter)
@@ -160,20 +160,20 @@ class BookContextManager:
                 priority=ContextPriority.HIGH,
                 metadata={'type': 'toc'}
             ))
-            
+
         # Recent chapters (sliding window)
         if book.get('toc', {}).get('chapters'):
             chapters = book['toc']['chapters']
-            
+
             if current_chapter is not None:
                 # Include chapters around current
                 start_idx = max(0, current_chapter - window_size)
                 end_idx = min(len(chapters), current_chapter + 1)
-                
+
                 for i in range(start_idx, end_idx):
                     chapter = chapters[i]
                     recency = window_size - abs(i - current_chapter)
-                    
+
                     # Full content for very recent chapters
                     if abs(i - current_chapter) <= 2 and chapter.get('content'):
                         elements.append(ContextElement(
@@ -191,28 +191,28 @@ class BookContextManager:
                             priority=ContextPriority.MEDIUM,
                             metadata={'type': 'chapter_summary', 'number': i, 'recency': recency}
                         ))
-                        
+
         # Optimize and convert to messages
         optimized = self.window_manager.optimize_context(elements)
-        
+
         # Convert to message format
         messages = []
-        
+
         # System message with essential context
         system_content = "You are a book writer. "
         for elem in optimized:
             if elem.priority == ContextPriority.ESSENTIAL:
                 system_content += elem.content + " "
-                
+
         messages.append({"role": "system", "content": system_content.strip()})
-        
+
         # Add other context as system messages
         for elem in optimized:
             if elem.priority != ContextPriority.ESSENTIAL:
                 messages.append({"role": "system", "content": elem.content})
-                
+
         return messages
-        
+
     def _format_toc(self, toc: Dict[str, Any], highlight_chapter: int = None) -> str:
         """Format table of contents with optional highlighting"""
         lines = []
@@ -227,33 +227,33 @@ class BookContextManager:
                     # Show sections for nearby chapters
                     section_count = len(chapter.get('sections', []))
                     lines.append(f"    ({section_count} sections)")
-                    
+
         return '\n'.join(lines)
-        
+
     def _summarize_chapter(self, chapter: Dict[str, Any]) -> str:
         """Create a summary of a chapter"""
         # Simple truncation for now - could use AI summarization
         content = chapter.get('content', '')
         topics = chapter.get('topics', '')
-        
+
         if topics:
             summary = f"Topics: {topics}. "
         else:
             summary = ""
-            
+
         # Take first 200 characters
         if content:
             summary += content[:200] + "..."
-            
+
         return summary
-        
+
     def _estimate_tokens(self, text: str) -> int:
         """Estimate token count"""
         return len(text) // 4
 
 class TokenOptimizer:
     """Main token optimization interface"""
-    
+
     def __init__(self, provider=None):
         """
         Initialize token optimizer
@@ -264,7 +264,7 @@ class TokenOptimizer:
         self.provider = provider
         self.book_manager = BookContextManager()
         self.logger = logging.getLogger(__name__)
-        
+
     def count_tokens(self, text: str) -> int:
         """
         Count tokens in text
@@ -280,8 +280,8 @@ class TokenOptimizer:
         else:
             # Rough estimation
             return len(text) // 4
-            
-    def optimize_messages(self, 
+
+    def optimize_messages(self,
                          messages: List[Dict[str, str]],
                          max_tokens: int,
                          preserve_recent: int = 3) -> List[Dict[str, str]]:
@@ -298,23 +298,23 @@ class TokenOptimizer:
         """
         if not messages:
             return messages
-            
+
         # Always keep system message
         optimized = [messages[0]] if messages[0]['role'] == 'system' else []
-        
+
         # Calculate available tokens
         system_tokens = self.count_tokens(optimized[0]['content']) if optimized else 0
         available = max_tokens - system_tokens
-        
+
         # Preserve recent messages
         recent = messages[-preserve_recent:] if len(messages) > preserve_recent else messages[1:]
         recent_tokens = sum(self.count_tokens(msg['content']) for msg in recent)
-        
+
         if recent_tokens <= available:
             # Add all recent messages
             optimized.extend(recent)
             available -= recent_tokens
-            
+
             # Try to add older messages
             older = messages[1:-preserve_recent] if len(messages) > preserve_recent + 1 else []
             for msg in reversed(older):
@@ -322,7 +322,7 @@ class TokenOptimizer:
                 if msg_tokens <= available:
                     optimized.insert(1, msg)  # Insert after system message
                     available -= msg_tokens
-                    
+
         else:
             # Need to truncate even recent messages
             for msg in recent:
@@ -330,11 +330,11 @@ class TokenOptimizer:
                 if msg_tokens <= available:
                     optimized.append(msg)
                     available -= msg_tokens
-                    
+
         self.logger.info(f"Messages optimized: {len(messages)} -> {len(optimized)}")
         return optimized
-        
-    def create_summary_message(self, 
+
+    def create_summary_message(self,
                                messages: List[Dict[str, str]],
                                max_tokens: int = 500) -> Dict[str, str]:
         """
@@ -350,17 +350,17 @@ class TokenOptimizer:
         # For now, just concatenate key points
         summary_points = []
         tokens_used = 0
-        
+
         for msg in messages:
             if msg['role'] == 'assistant':
                 # Take first sentence or 100 chars
                 point = msg['content'].split('.')[0][:100]
                 point_tokens = self.count_tokens(point)
-                
+
                 if tokens_used + point_tokens <= max_tokens:
                     summary_points.append(point)
                     tokens_used += point_tokens
-                    
+
         if summary_points:
             return {
                 'role': 'system',

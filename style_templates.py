@@ -1,10 +1,11 @@
 """
 Style Templates System for Different Writing Genres
 """
-from typing import Dict, Any, List, Optional
-from dataclasses import dataclass
 import json
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Any, Dict, List, Optional
+
 
 @dataclass
 class StyleTemplate:
@@ -19,7 +20,7 @@ class StyleTemplate:
     prompt_modifiers: Dict[str, str]
     content_warnings: List[str] = None
     age_rating: str = "general"
-    
+
     def to_dict(self):
         return {
             'name': self.name,
@@ -36,12 +37,12 @@ class StyleTemplate:
 
 class StyleManager:
     """Manages writing style templates"""
-    
+
     def __init__(self):
         self.templates = self._load_default_templates()
         self.custom_templates = {}
         self.current_style = None
-        
+
     def _load_default_templates(self) -> Dict[str, StyleTemplate]:
         """Load default style templates"""
         return {
@@ -61,7 +62,7 @@ class StyleManager:
                     'section': "Include topic sentences, evidence, analysis, and transitions"
                 }
             ),
-            
+
             'technical': StyleTemplate(
                 name='technical',
                 category='non-fiction',
@@ -77,7 +78,7 @@ class StyleManager:
                     'section': "Break down complex concepts into understandable steps"
                 }
             ),
-            
+
             # Fiction Styles
             'literary_fiction': StyleTemplate(
                 name='literary_fiction',
@@ -94,7 +95,7 @@ class StyleManager:
                     'section': "Blend action with introspection, use sensory details"
                 }
             ),
-            
+
             'thriller': StyleTemplate(
                 name='thriller',
                 category='fiction',
@@ -110,7 +111,7 @@ class StyleManager:
                     'section': "Use short paragraphs, active voice, immediate action"
                 }
             ),
-            
+
             'romance': StyleTemplate(
                 name='romance',
                 category='fiction',
@@ -126,7 +127,7 @@ class StyleManager:
                     'section': "Develop intimate moments, emotional dialogue, sensory details"
                 }
             ),
-            
+
             'erotic_romance': StyleTemplate(
                 name='erotic_romance',
                 category='fiction',
@@ -144,7 +145,7 @@ class StyleManager:
                 content_warnings=['sexual content', 'adult themes'],
                 age_rating='18+'
             ),
-            
+
             'fantasy': StyleTemplate(
                 name='fantasy',
                 category='fiction',
@@ -160,7 +161,7 @@ class StyleManager:
                     'section': "Balance action with world description, develop magic system"
                 }
             ),
-            
+
             'scifi': StyleTemplate(
                 name='scifi',
                 category='fiction',
@@ -176,7 +177,7 @@ class StyleManager:
                     'section': "Balance technical exposition with narrative flow"
                 }
             ),
-            
+
             'mystery': StyleTemplate(
                 name='mystery',
                 category='fiction',
@@ -192,7 +193,7 @@ class StyleManager:
                     'section': "Balance revelation with misdirection"
                 }
             ),
-            
+
             'horror': StyleTemplate(
                 name='horror',
                 category='fiction',
@@ -210,7 +211,7 @@ class StyleManager:
                 content_warnings=['violence', 'disturbing content'],
                 age_rating='16+'
             ),
-            
+
             # Children's Literature
             'childrens': StyleTemplate(
                 name='childrens',
@@ -228,7 +229,7 @@ class StyleManager:
                 },
                 age_rating='6+'
             ),
-            
+
             'young_adult': StyleTemplate(
                 name='young_adult',
                 category='fiction',
@@ -245,7 +246,7 @@ class StyleManager:
                 },
                 age_rating='13+'
             ),
-            
+
             # Non-Fiction Styles
             'self_help': StyleTemplate(
                 name='self_help',
@@ -262,7 +263,7 @@ class StyleManager:
                     'section': "Include action items, motivational language"
                 }
             ),
-            
+
             'biography': StyleTemplate(
                 name='biography',
                 category='non-fiction',
@@ -278,7 +279,7 @@ class StyleManager:
                     'section': "Use anecdotes, maintain chronological flow"
                 }
             ),
-            
+
             'business': StyleTemplate(
                 name='business',
                 category='non-fiction',
@@ -295,7 +296,7 @@ class StyleManager:
                 }
             )
         }
-        
+
     def get_style(self, style_name: str) -> Optional[StyleTemplate]:
         """Get a style template by name"""
         # Check custom templates first
@@ -303,19 +304,19 @@ class StyleManager:
             return self.custom_templates[style_name]
         # Then check default templates
         return self.templates.get(style_name)
-        
+
     def list_styles(self, category: str = None) -> List[str]:
         """List available styles"""
         all_styles = {**self.templates, **self.custom_templates}
-        
+
         if category:
             return [
                 name for name, style in all_styles.items()
                 if style.category == category
             ]
         return list(all_styles.keys())
-        
-    def create_custom_style(self, 
+
+    def create_custom_style(self,
                           name: str,
                           base_style: str = None,
                           **kwargs) -> StyleTemplate:
@@ -340,13 +341,13 @@ class StyleManager:
                 'content_warnings': kwargs.get('content_warnings', []),
                 'age_rating': kwargs.get('age_rating', 'general')
             }
-            
+
         custom_style = StyleTemplate(**style_dict)
         self.custom_templates[name] = custom_style
-        
+
         return custom_style
-        
-    def apply_style_to_prompt(self, 
+
+    def apply_style_to_prompt(self,
                              prompt: str,
                              style_name: str,
                              prompt_type: str = 'base') -> str:
@@ -364,16 +365,16 @@ class StyleManager:
         style = self.get_style(style_name)
         if not style:
             return prompt
-            
+
         # Get style modifier for this prompt type
         modifier = style.prompt_modifiers.get(
-            prompt_type, 
+            prompt_type,
             style.prompt_modifiers.get('base', '')
         )
-        
+
         # Apply style context
         styled_prompt = f"{modifier}\n\n{prompt}"
-        
+
         # Add additional context based on style features
         if 'dialogue' in style.features:
             styled_prompt += "\nEnsure dialogue is natural and character-appropriate."
@@ -381,20 +382,20 @@ class StyleManager:
             styled_prompt += "\nInclude rich worldbuilding details."
         if 'citations' in style.features:
             styled_prompt += "\nInclude appropriate citations and references."
-            
+
         # Add content warnings if applicable
         if style.content_warnings:
             warnings = ', '.join(style.content_warnings)
             styled_prompt = f"[Content includes: {warnings}]\n\n{styled_prompt}"
-            
+
         return styled_prompt
-        
+
     def get_style_info(self, style_name: str) -> Dict[str, Any]:
         """Get detailed information about a style"""
         style = self.get_style(style_name)
         if not style:
             return {}
-            
+
         return {
             'name': style.name,
             'category': style.category,
@@ -404,41 +405,41 @@ class StyleManager:
             'content_warnings': style.content_warnings or [],
             'suitable_for': self._get_suitable_uses(style)
         }
-        
+
     def _get_suitable_uses(self, style: StyleTemplate) -> List[str]:
         """Determine suitable uses for a style"""
         uses = []
-        
+
         if style.category == 'academic':
             uses.extend(['research', 'thesis', 'papers'])
         elif style.category == 'fiction':
             uses.extend(['novels', 'short stories', 'creative writing'])
         elif style.category == 'non-fiction':
             uses.extend(['guides', 'manuals', 'informational'])
-            
+
         if style.age_rating == '18+':
             uses.append('adult content')
         elif style.age_rating == '6+':
             uses.append('children\'s books')
-            
+
         return uses
-        
+
     def save_custom_styles(self, filepath: str = "custom_styles.json"):
         """Save custom styles to file"""
         data = {
-            name: style.to_dict() 
+            name: style.to_dict()
             for name, style in self.custom_templates.items()
         }
-        
+
         with open(filepath, 'w', encoding='utf-8') as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
-            
+
     def load_custom_styles(self, filepath: str = "custom_styles.json"):
         """Load custom styles from file"""
         if Path(filepath).exists():
-            with open(filepath, 'r', encoding='utf-8') as f:
+            with open(filepath, encoding='utf-8') as f:
                 data = json.load(f)
-                
+
             for name, style_dict in data.items():
                 self.custom_templates[name] = StyleTemplate(**style_dict)
 
