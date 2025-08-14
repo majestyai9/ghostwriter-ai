@@ -266,33 +266,84 @@ class BackgroundTaskManager:
             return self._submit_thread_task(task_name, task_data, callback)
 
     def _submit_celery_task(self, task_name: str, task_data: Dict[str, Any], callback: Optional[Callable]) -> str:
-        """Submit task using Celery"""
+        """Submit task using Celery with proper callback handling"""
+        # Create callback task if provided
+        callback_task = None
+        if callback:
+            # Wrap callback in a Celery task
+            @app.task
+            def execute_callback(result):
+                try:
+                    callback(result)
+                    return {'status': 'callback_executed', 'result': result}
+                except Exception as e:
+                    self.logger.error(f"Callback execution failed: {e}")
+                    return {'status': 'callback_failed', 'error': str(e)}
+            
+            callback_task = execute_callback.s()
+
+        # Submit main task with linked callback
         if task_name == 'generate_book':
-            task = generate_book_celery.delay(task_data)
+            if callback_task:
+                task = generate_book_celery.apply_async(
+                    args=[task_data],
+                    link=callback_task
+                )
+            else:
+                task = generate_book_celery.delay(task_data)
         elif task_name == 'generate_chapter':
-            task = generate_chapter_celery.delay(task_data)
+            if callback_task:
+                task = generate_chapter_celery.apply_async(
+                    args=[task_data],
+                    link=callback_task
+                )
+            else:
+                task = generate_chapter_celery.delay(task_data)
         else:
             raise ValueError(f"Unknown task: {task_name}")
 
-        self.logger.info(f"Submitted Celery task {task.id}")
-
-        if callback:
-            # Store callback for later execution
-            self.tasks[task.id] = {'callback': callback, 'celery_task': task}
+        self.logger.info(f"Submitted Celery task {task.id} with callback: {callback is not None}")
+        
+        # Store task reference
+        self.tasks[task.id] = {
+            'celery_task': task,
+            'has_callback': callback is not None
+        }
 
         return task.id
 
     def _submit_rq_task(self, task_name: str, task_data: Dict[str, Any], callback: Optional[Callable]) -> str:
-        """Submit task using RQ"""
+        """Submit task using RQ with proper callback handling"""
+        # Define callback wrapper if provided
+        on_success_callback = None
+        if callback:
+            def on_success_wrapper(job, connection, result):
+                try:
+                    callback(result)
+                    self.logger.info(f"RQ callback executed for job {job.id}")
+                except Exception as e:
+                    self.logger.error(f"RQ callback failed for job {job.id}: {e}")
+            
+            on_success_callback = on_success_wrapper
+
+        # Submit task with callback
         if task_name == 'generate_book':
-            job = task_queue.enqueue(generate_book_rq, task_data, job_timeout='1h')
+            job = task_queue.enqueue(
+                generate_book_rq,
+                task_data,
+                job_timeout='1h',
+                on_success=on_success_callback
+            )
         else:
             raise ValueError(f"Unknown task: {task_name}")
 
-        self.logger.info(f"Submitted RQ job {job.id}")
-
-        if callback:
-            self.tasks[job.id] = {'callback': callback, 'rq_job': job}
+        self.logger.info(f"Submitted RQ job {job.id} with callback: {callback is not None}")
+        
+        # Store job reference
+        self.tasks[job.id] = {
+            'rq_job': job,
+            'has_callback': callback is not None
+        }
 
         return job.id
 

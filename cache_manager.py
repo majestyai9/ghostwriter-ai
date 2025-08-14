@@ -5,6 +5,7 @@ import hashlib
 import json
 import logging
 import pickle
+import threading
 import time
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -34,55 +35,67 @@ class CacheBackend:
         raise NotImplementedError
 
 class MemoryCache(CacheBackend):
-    """In-memory cache backend with LRU eviction"""
+    """In-memory cache backend with LRU eviction and thread safety"""
 
     def __init__(self, max_size: int = 1000):
         self.cache = {}
         self.access_times = {}
         self.max_size = max_size
         self.logger = logging.getLogger(__name__)
+        self.lock = threading.Lock()  # Thread safety lock
 
     def get(self, key: str) -> Optional[Any]:
-        if key in self.cache:
-            entry = self.cache[key]
-            if entry['expire'] and entry['expire'] < time.time():
-                del self.cache[key]
-                return None
-            self.access_times[key] = time.time()
-            return entry['value']
-        return None
+        with self.lock:
+            if key in self.cache:
+                entry = self.cache[key]
+                if entry['expire'] and entry['expire'] < time.time():
+                    del self.cache[key]
+                    if key in self.access_times:
+                        del self.access_times[key]
+                    return None
+                self.access_times[key] = time.time()
+                return entry['value']
+            return None
 
     def set(self, key: str, value: Any, expire: int = None):
-        # LRU eviction if needed
-        if len(self.cache) >= self.max_size and key not in self.cache:
-            lru_key = min(self.access_times, key=self.access_times.get)
-            del self.cache[lru_key]
-            del self.access_times[lru_key]
+        with self.lock:
+            # LRU eviction if needed
+            if len(self.cache) >= self.max_size and key not in self.cache:
+                if self.access_times:  # Check if there are any items to evict
+                    lru_key = min(self.access_times, key=self.access_times.get)
+                    del self.cache[lru_key]
+                    del self.access_times[lru_key]
 
-        self.cache[key] = {
-            'value': value,
-            'expire': time.time() + expire if expire else None,
-            'created': time.time()
-        }
-        self.access_times[key] = time.time()
+            self.cache[key] = {
+                'value': value,
+                'expire': time.time() + expire if expire else None,
+                'created': time.time()
+            }
+            self.access_times[key] = time.time()
 
     def delete(self, key: str):
-        if key in self.cache:
-            del self.cache[key]
-            del self.access_times[key]
+        with self.lock:
+            if key in self.cache:
+                del self.cache[key]
+            if key in self.access_times:
+                del self.access_times[key]
 
     def exists(self, key: str) -> bool:
-        if key in self.cache:
-            entry = self.cache[key]
-            if entry['expire'] and entry['expire'] < time.time():
-                del self.cache[key]
-                return False
-            return True
-        return False
+        with self.lock:
+            if key in self.cache:
+                entry = self.cache[key]
+                if entry['expire'] and entry['expire'] < time.time():
+                    del self.cache[key]
+                    if key in self.access_times:
+                        del self.access_times[key]
+                    return False
+                return True
+            return False
 
     def clear(self):
-        self.cache.clear()
-        self.access_times.clear()
+        with self.lock:
+            self.cache.clear()
+            self.access_times.clear()
 
 class RedisCache(CacheBackend):
     """Redis cache backend"""
