@@ -1,92 +1,206 @@
-import time
+"""
+Enhanced AI module with provider abstraction and error handling
+"""
 import logging
-import openai
-import tiktoken
+from typing import List, Dict, Any
+from providers import get_provider, LLMProvider
+from exceptions import (
+    LLMProviderError, 
+    RateLimitError, 
+    TokenLimitError,
+    ContentGenerationError
+)
+from events import event_manager, Event, EventType
 import config
 
-encoding = tiktoken.encoding_for_model(config.OPENAI_MODEL or config.OPENAI_ENGINE)
+# Initialize provider
+provider: LLMProvider = None
 
-openai.api_base = config.OPENAI_API_BASE
-openai.api_key = config.OPENAI_API_KEY
-openai.api_type = config.OPENAI_API_TYPE
-openai.api_version = config.OPENAI_API_VERSION
-# openai.debug=True
-# openai.log='debug'
-
-# from https://learn.microsoft.com/en-us/answers/questions/1193969/how-to-integrate-tiktoken-library-with-azure-opena?orderby=oldest
-def num_tokens_from_messages(messages):
-    num_tokens = 0
-    for message in messages:
-        num_tokens += 4  # every message follows <im_start>{role/name}\n{content}<im_end>\n
-        for key, value in message.items():
-            num_tokens += len(encoding.encode(value))
-            if key == "name":  # if there's a name, the role is omitted
-                num_tokens += -1  # role is always required and always 1 token
-    num_tokens += 2  # every reply is primed with <im_start>assistant
-    return num_tokens
-
-def _check_num_tokens(messages, max_tokens=config.MAX_TOKENS):
-    # remove messages until the number of tokens is below the limit
-    # the first one is always an important system message, so we don't remove it
-    # this is a very naive approach, but it works for now
-    # TODO: improve this
-
-    deleted = 0
-    num_tokens = num_tokens_from_messages(messages)
-    while (len(messages)>2 and num_tokens + max_tokens >= config.TOKEN_LIMIT):
-        del messages[1] # index 0 is always an important system message, so we don't remove it
-        deleted += 1
-        num_tokens = num_tokens_from_messages(messages)
-    
-    if deleted > 0:
-        logging.info(f">> Removed {deleted} messages. Number of tokens: {num_tokens}. Max tokens: {max_tokens}. Total Tokens: {num_tokens+max_tokens}. Limit: {config.TOKEN_LIMIT}. Num. of Messages: {len(messages)}")
-    
-    if num_tokens + max_tokens >= config.TOKEN_LIMIT:
-        raise Exception(f"Number of tokens ({num_tokens}) still exceeds limit ({config.TOKEN_LIMIT})")
-
-    return num_tokens
-
-def get_retry_after(e, default=30):
-    # get retru time from header
-    if e.headers.get('Retry-After') is not None:
-        return int(e.headers['Retry-After'])
-    
-    # try get retry time from error message
+def initialize_provider():
+    """Initialize the LLM provider"""
+    global provider
     try:
-        return int(e.message.split('retry after ')[1].split(' seconds')[0])
-    except:
-        return default
+        provider = get_provider(config=config.PROVIDER_CONFIG)
+        logging.info(f"Initialized {config.LLM_PROVIDER} provider")
+    except Exception as e:
+        logging.error(f"Failed to initialize provider: {e}")
+        raise
 
-# from https://learn.microsoft.com/en-us/azure/ai-services/openai/how-to/chatgpt?pivots=programming-language-chat-completions
-def callOpenAI(prompt, history, waitingShortAnwser=False, forceMaximum=False, appendResponse=True):
-    max_tokens = config.MAX_TOKENS_SHORT if waitingShortAnwser else config.MAX_TOKENS
-    maxtokensstr = f' Try to use the maximum {max_tokens} tokens available.' if forceMaximum else ''
-    history.append({"role": "user", "content": f'{prompt}\nLimit the output to {max_tokens} tokens.{maxtokensstr}'})
-    _check_num_tokens(history, max_tokens)
+# Initialize on module load
+initialize_provider()
 
+def callLLM(prompt: str, 
+           history: List[Dict[str, str]] = None,
+           waitingShortAnswer: bool = False,
+           forceMaximum: bool = False,
+           appendResponse: bool = True,
+           max_retries: int = 3) -> str:
+    """
+    Enhanced LLM call with error handling and event emission
+    
+    Args:
+        prompt: The prompt to send
+        history: Conversation history
+        waitingShortAnswer: Whether expecting a short answer
+        forceMaximum: Whether to force maximum token usage
+        appendResponse: Whether to append response to history
+        max_retries: Maximum number of retries on failure
+        
+    Returns:
+        Generated text
+        
+    Raises:
+        ContentGenerationError: If generation fails after retries
+    """
+    if provider is None:
+        raise ContentGenerationError("Provider not initialized")
+        
+    max_tokens = config.MAX_TOKENS_SHORT if waitingShortAnswer else config.MAX_TOKENS
+    
+    if forceMaximum:
+        prompt += f"\nTry to use the maximum {max_tokens} tokens available."
+    
+    prompt += f"\nLimit the output to {max_tokens} tokens."
+    
+    # Clean history to manage token limits
+    if history:
+        history = _manage_history_tokens(history, max_tokens)
+    
+    for attempt in range(max_retries):
+        try:
+            # Generate response
+            response = provider.generate(
+                prompt=prompt,
+                history=history,
+                max_tokens=max_tokens,
+                temperature=config.TEMPERATURE
+            )
+            
+            if response.finish_reason == 'length':
+                event_manager.emit(Event(EventType.TOKEN_LIMIT_REACHED, {
+                    'tokens_used': response.tokens_used,
+                    'max_tokens': max_tokens
+                }))
+                logging.warning("Response truncated due to token limit")
+            
+            # Append to history if requested
+            if appendResponse and history is not None:
+                history.append({"role": "user", "content": prompt})
+                history.append({"role": "assistant", "content": response.content})
+            
+            return response.content
+            
+        except RateLimitError as e:
+            if attempt < max_retries - 1:
+                logging.info(f"Rate limit hit, retry {attempt + 1}/{max_retries}")
+                # RateLimitError may contain retry_after
+                if hasattr(e, 'retry_after') and e.retry_after:
+                    import time
+                    time.sleep(e.retry_after)
+                continue
+            else:
+                raise ContentGenerationError(f"Rate limit exceeded after {max_retries} retries")
+                
+        except TokenLimitError as e:
+            # Try to reduce history and retry
+            if history and len(history) > 2:
+                logging.info("Token limit exceeded, reducing history")
+                history = _reduce_history(history)
+                continue
+            else:
+                raise ContentGenerationError(f"Token limit exceeded: {e}")
+                
+        except LLMProviderError as e:
+            logging.error(f"Provider error on attempt {attempt + 1}: {e}")
+            if attempt < max_retries - 1:
+                continue
+            else:
+                raise ContentGenerationError(f"Provider error after {max_retries} retries: {e}")
+                
+        except Exception as e:
+            logging.error(f"Unexpected error: {e}")
+            raise ContentGenerationError(f"Unexpected error during generation: {e}")
+            
+    raise ContentGenerationError(f"Failed to generate content after {max_retries} attempts")
+
+def _manage_history_tokens(history: List[Dict[str, str]], max_tokens: int) -> List[Dict[str, str]]:
+    """
+    Manage history to fit within token limits
+    
+    Args:
+        history: Conversation history
+        max_tokens: Maximum tokens for response
+        
+    Returns:
+        Managed history
+    """
+    if not history:
+        return history
+        
+    # Always keep the first (system) message
+    managed = [history[0]] if history else []
+    
+    # Calculate available tokens
+    available_tokens = config.TOKEN_LIMIT - max_tokens
+    current_tokens = provider.count_tokens(managed[0]['content']) if managed else 0
+    
+    # Add messages from the end (most recent first)
+    for msg in reversed(history[1:]):
+        msg_tokens = provider.count_tokens(msg['content'])
+        if current_tokens + msg_tokens < available_tokens:
+            managed.insert(1, msg)  # Insert after system message
+            current_tokens += msg_tokens
+        else:
+            break
+            
+    if len(managed) < len(history):
+        removed = len(history) - len(managed)
+        logging.info(f"Removed {removed} messages from history to fit token limit")
+        event_manager.emit(Event(EventType.TOKEN_LIMIT_REACHED, {
+            'messages_removed': removed,
+            'messages_kept': len(managed)
+        }))
+        
+    return managed
+
+def _reduce_history(history: List[Dict[str, str]]) -> List[Dict[str, str]]:
+    """
+    Reduce history by removing oldest messages
+    
+    Args:
+        history: Conversation history
+        
+    Returns:
+        Reduced history
+    """
+    if len(history) <= 2:
+        return history
+        
+    # Keep system message and most recent messages
+    return [history[0]] + history[-(len(history) // 2):]
+
+def get_provider_info() -> Dict[str, Any]:
+    """Get information about the current provider"""
+    if provider:
+        return provider.get_model_info()
+    return {}
+
+def switch_provider(provider_name: str, config: Dict[str, Any]):
+    """
+    Switch to a different provider at runtime
+    
+    Args:
+        provider_name: Name of the new provider
+        config: Configuration for the new provider
+    """
+    global provider
     try:
-        response = openai.ChatCompletion.create(
-            engine=config.OPENAI_ENGINE,
-            model=config.OPENAI_MODEL,
-            temperature=config.TEMPERATURE,
-            max_tokens=max_tokens,
-            frequency_penalty=0.0,
-            messages=history,
-        )
-        if response['choices'][0]['finish_reason'] == 'length':
-            raise Exception("Number of tokens still exceeds limit")
-
-        content = response['choices'][0]['message']['content']
-    except openai.error.RateLimitError as e:
-        retry_after = get_retry_after(e)+5
-        logging.info(f">> Rate limit exceeded. Retrying in {retry_after} seconds.")
-        time.sleep(retry_after)
-        logging.info(">> Retrying...")
-        history.pop() # remove prompt from history because it will be added again
-        content = callOpenAI(prompt, history, appendResponse=False)
-
-    if appendResponse:
-        history.append({"role": "assistant", "content": content})
-
-    time.sleep(5)
-    return content
+        provider = get_provider(provider_name, config)
+        logging.info(f"Switched to {provider_name} provider")
+        event_manager.emit(Event(EventType.GENERATION_STARTED, {
+            'provider': provider_name,
+            'model': config.get('model')
+        }))
+    except Exception as e:
+        logging.error(f"Failed to switch provider: {e}")
+        raise ConfigurationError(f"Failed to switch to {provider_name}: {e}")

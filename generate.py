@@ -1,7 +1,13 @@
+"""
+Enhanced generate module with error handling and event system
+"""
 import json
 import logging
+from typing import Generator, Dict, Any, List
 import prompts
-from ai import callOpenAI
+from ai import callLLM
+from exceptions import ContentGenerationError, ValidationError
+from events import event_manager, Event, EventType
 
 def _limit_text(text, limit=200):
     if len(text) > limit:
@@ -21,112 +27,273 @@ def _toc_2_text(toc, highlightChapter=None):
     return text
 
 def _write_title(book, original_title, history):
-    if not book.get('title'):
-        logging.info("# Generating a new title...")
-        book["title"] = callOpenAI(prompts.title(original_title), history, waitingShortAnwser=True)
-        logging.info(f"# New title: {book['title']}")
-        yield book
-    else:
-        logging.info(f"# Writing book {book['title']}...")
-        history.append({"role": "system", "content": f'The title of the book is: "{book["title"]}".'})
-        # history.append({"role": "user", "content": prompts.title(original_title)})
-        # history.append({"role": "assistant", "content": book['title']})
-    
-    history[0]["content"] += f' The title of the book is "{book["title"]}"'
-
-    logging.info("")
+    """Generate or validate book title with error handling"""
+    try:
+        if not book.get('title'):
+            logging.info("# Generating a new title...")
+            event_manager.emit(Event(EventType.TITLE_STARTED, {'original_title': original_title}))
+            
+            book["title"] = callLLM(
+                prompts.title(original_title), 
+                history, 
+                waitingShortAnswer=True
+            )
+            
+            logging.info(f"# New title: {book['title']}")
+            event_manager.emit(Event(EventType.TITLE_COMPLETED, {'title': book['title']}))
+            yield book
+        else:
+            logging.info(f"# Writing book {book['title']}...")
+            history.append({"role": "system", "content": f'The title of the book is: "{book["title"]}".'})
+            
+        history[0]["content"] += f' The title of the book is "{book["title"]}"'
+        logging.info("")
+        
+    except Exception as e:
+        logging.error(f"Failed to generate title: {e}")
+        event_manager.emit(Event(EventType.GENERATION_FAILED, {'stage': 'title', 'error': str(e)}))
+        raise ContentGenerationError(f"Title generation failed: {e}")
 
 def _write_toc(book, instructions, history):
-    if not book.get('toc'):
-        logging.info("# Generating a new table of contents...")
-        toc_str = callOpenAI(prompts.table_of_contents(instructions), history)
-        book["toc"] = json.loads(toc_str)
-        #book["toc"]["chapters"] = sorted(book["toc"]["chapters"], key=lambda x: x["number"])
-        logging.info(f"Table of Contents:\n{_toc_2_text(book['toc'])}")
-        yield book
-    else:
-        logging.info("# Table of contents already defined...")
-        history.append({"role": "system", "content": f"The book has the following table of contents:\n{_toc_2_text(book['toc'])}"})
-        # history.append({"role": "user", "content": prompts.table_of_contents(instructions)})
-        # history.append({"role": "assistant", "content": json.dumps(book["toc"], indent=4)})
-        logging.info(f"Table of Contents:\n{_toc_2_text(book['toc'])}")
-    
-    logging.info("")
+    """Generate table of contents with error handling"""
+    try:
+        if not book.get('toc'):
+            logging.info("# Generating a new table of contents...")
+            event_manager.emit(Event(EventType.TOC_STARTED, {'instructions': instructions}))
+            
+            toc_str = callLLM(prompts.table_of_contents(instructions), history)
+            
+            try:
+                book["toc"] = json.loads(toc_str)
+            except json.JSONDecodeError as e:
+                logging.error(f"Failed to parse TOC JSON: {e}")
+                raise ValidationError(f"Invalid TOC format: {e}")
+                
+            # Validate TOC structure
+            if not isinstance(book["toc"], dict) or "chapters" not in book["toc"]:
+                raise ValidationError("TOC must contain 'chapters' key")
+                
+            logging.info(f"Table of Contents:\n{_toc_2_text(book['toc'])}")
+            event_manager.emit(Event(EventType.TOC_COMPLETED, {'toc': book['toc']}))
+            yield book
+        else:
+            logging.info("# Table of contents already defined...")
+            history.append({"role": "system", "content": f"The book has the following table of contents:\n{_toc_2_text(book['toc'])}"})
+            logging.info(f"Table of Contents:\n{_toc_2_text(book['toc'])}")
+            
+        logging.info("")
+        
+    except ContentGenerationError:
+        raise
+    except Exception as e:
+        logging.error(f"Failed to generate TOC: {e}")
+        event_manager.emit(Event(EventType.GENERATION_FAILED, {'stage': 'toc', 'error': str(e)}))
+        raise ContentGenerationError(f"TOC generation failed: {e}")
 
 def _write_summary(book, instructions, history):
-    if not book.get('summary'):
-        logging.info("# Generating a new summary...")
-        book["summary"] = callOpenAI(prompts.summary(book, instructions), history, waitingShortAnwser=True, forceMaximum=True)
-        logging.info(f'# New summary:\n{book["summary"]}')
-        yield book
-    else:
-        logging.info(f"# Summary is already defined: {_limit_text(book['summary'])}")
-        #history.append({"role": "system", "content": f'The book has the following summary:\n{book["summary"]}'})
-        # history.append({"role": "user", "content": prompts.summary(book, instructions)})
-        # history.append({"role": "assistant", "content": book["summary"]})
-    
-    history[0]["content"] += f' The summary of the book is: "{book["summary"]}"'
-    logging.info("")
+    """Generate book summary with error handling"""
+    try:
+        if not book.get('summary'):
+            logging.info("# Generating a new summary...")
+            event_manager.emit(Event(EventType.SUMMARY_STARTED, {'title': book.get('title')}))
+            
+            book["summary"] = callLLM(
+                prompts.summary(book, instructions), 
+                history, 
+                waitingShortAnswer=True, 
+                forceMaximum=True
+            )
+            
+            logging.info(f'# New summary:\n{book["summary"]}')
+            event_manager.emit(Event(EventType.SUMMARY_COMPLETED, {'summary': book['summary']}))
+            yield book
+        else:
+            logging.info(f"# Summary is already defined: {_limit_text(book['summary'])}")
+            
+        history[0]["content"] += f' The summary of the book is: "{book["summary"]}"'
+        logging.info("")
+        
+    except Exception as e:
+        logging.error(f"Failed to generate summary: {e}")
+        event_manager.emit(Event(EventType.GENERATION_FAILED, {'stage': 'summary', 'error': str(e)}))
+        raise ContentGenerationError(f"Summary generation failed: {e}")
 
 def _write_chapter(book, chapter, history):
+    """Generate chapter content with error handling"""
     chapter_desc = f'"{chapter["number"]}. {chapter["title"]}"'
-
-    if not chapter.get('content'):
-        logging.info(f"# Generating a new content for chapter {chapter_desc}:")
-        chapter_highlighted_toc = _toc_2_text(book["toc"], chapter)
-        chapter["topics"] = callOpenAI(prompts.chapter_topics(book, chapter, chapter_highlighted_toc), history, waitingShortAnwser=True)
-        logging.info(f"Topics: {chapter['topics']}")
-        chapter["content"] = callOpenAI(prompts.chapter(book, chapter, chapter_highlighted_toc), history, forceMaximum=True)
-        logging.info(chapter["content"])
-        yield book
-    else:
-        logging.info(f"# Content for chapter {chapter_desc} is already defined: {_limit_text(chapter['content'])}.\nChapter Topics: {chapter['topics']}")
-        history.append({"role": "system", "content": f'The book content for chapter {chapter_desc} is:\n{chapter["content"]}'})
-        # history.append({"role": "user", "content": prompts.chapter(book, chapter)})
-        # history.append({"role": "assistant", "content": chapter["content"]})
-
-    logging.info("")
+    
+    try:
+        if not chapter.get('content'):
+            logging.info(f"# Generating a new content for chapter {chapter_desc}:")
+            event_manager.emit(Event(EventType.CHAPTER_STARTED, {
+                'chapter_number': chapter["number"],
+                'chapter_title': chapter["title"]
+            }))
+            
+            chapter_highlighted_toc = _toc_2_text(book["toc"], chapter)
+            
+            # Generate chapter topics
+            chapter["topics"] = callLLM(
+                prompts.chapter_topics(book, chapter, chapter_highlighted_toc), 
+                history, 
+                waitingShortAnswer=True
+            )
+            logging.info(f"Topics: {chapter['topics']}")
+            
+            # Generate chapter content
+            chapter["content"] = callLLM(
+                prompts.chapter(book, chapter, chapter_highlighted_toc), 
+                history, 
+                forceMaximum=True
+            )
+            logging.info(chapter["content"])
+            
+            event_manager.emit(Event(EventType.CHAPTER_COMPLETED, {
+                'chapter_number': chapter["number"],
+                'chapter_title': chapter["title"],
+                'content_length': len(chapter["content"])
+            }))
+            yield book
+        else:
+            logging.info(f"# Content for chapter {chapter_desc} is already defined: {_limit_text(chapter['content'])}.\nChapter Topics: {chapter['topics']}")
+            history.append({"role": "system", "content": f'The book content for chapter {chapter_desc} is:\n{chapter["content"]}'})
+            
+        logging.info("")
+        
+    except Exception as e:
+        logging.error(f"Failed to generate chapter {chapter_desc}: {e}")
+        event_manager.emit(Event(EventType.GENERATION_FAILED, {
+            'stage': 'chapter',
+            'chapter': chapter_desc,
+            'error': str(e)
+        }))
+        raise ContentGenerationError(f"Chapter generation failed for {chapter_desc}: {e}")
 
 def _write_section(book, chapter, section, history):
+    """Generate section content with error handling"""
     section_desc = f'"{chapter["number"]}.{section["number"]}. {section["title"]}"'
-
-    if not section.get('content'):
-        logging.info(f"# Generating a new content for section {section_desc}:")
-        chapter_highlighted_toc = _toc_2_text(book["toc"], chapter)
-        section["topics"] = callOpenAI(prompts.section_topics(book, chapter, section, chapter_highlighted_toc), history, waitingShortAnwser=True)
-        logging.info(f"Topics: {section['topics']}")
-        section["content"] = callOpenAI(prompts.section(book, chapter, section), history, forceMaximum=True)
-        logging.info(section["content"])
-        yield book
-    else:
-        logging.info(f"# Content for section {section_desc} is already defined: {_limit_text(section['content'])}.\nSection Topics: {section['topics']}")
-        history.append({"role": "system", "content": f'The book content for section {section_desc} is:\n{section["content"]}'})
-        # history.append({"role": "user", "content": prompts.section(book, chapter, section)})
-        # history.append({"role": "assistant", "content": section["content"]})
     
-    logging.info("")
+    try:
+        if not section.get('content'):
+            logging.info(f"# Generating a new content for section {section_desc}:")
+            event_manager.emit(Event(EventType.SECTION_STARTED, {
+                'chapter_number': chapter["number"],
+                'section_number': section["number"],
+                'section_title': section["title"]
+            }))
+            
+            chapter_highlighted_toc = _toc_2_text(book["toc"], chapter)
+            
+            # Generate section topics
+            section["topics"] = callLLM(
+                prompts.section_topics(book, chapter, section, chapter_highlighted_toc), 
+                history, 
+                waitingShortAnswer=True
+            )
+            logging.info(f"Topics: {section['topics']}")
+            
+            # Generate section content
+            section["content"] = callLLM(
+                prompts.section(book, chapter, section), 
+                history, 
+                forceMaximum=True
+            )
+            logging.info(section["content"])
+            
+            event_manager.emit(Event(EventType.SECTION_COMPLETED, {
+                'chapter_number': chapter["number"],
+                'section_number': section["number"],
+                'section_title': section["title"],
+                'content_length': len(section["content"])
+            }))
+            yield book
+        else:
+            logging.info(f"# Content for section {section_desc} is already defined: {_limit_text(section['content'])}.\nSection Topics: {section['topics']}")
+            history.append({"role": "system", "content": f'The book content for section {section_desc} is:\n{section["content"]}'})
+            
+        logging.info("")
+        
+    except Exception as e:
+        logging.error(f"Failed to generate section {section_desc}: {e}")
+        event_manager.emit(Event(EventType.GENERATION_FAILED, {
+            'stage': 'section',
+            'section': section_desc,
+            'error': str(e)
+        }))
+        raise ContentGenerationError(f"Section generation failed for {section_desc}: {e}")
 
-def write_book(book, original_title, instructions="", language="Brazilian Portuguese"):
-    original_message = {"role": "system", "content": f"You are a book writer, writing a new book in {language} refered in the future as BookLanguage."}
+def write_book(book: Dict[str, Any], 
+              original_title: str, 
+              instructions: str = "", 
+              language: str = "Brazilian Portuguese") -> Generator[Dict[str, Any], None, None]:
+    """
+    Enhanced book writing with error handling and event system
+    
+    Args:
+        book: Existing book data (if any)
+        original_title: Original book title
+        instructions: Generation instructions
+        language: Target language
+        
+    Yields:
+        Updated book dictionary after each generation step
+        
+    Raises:
+        ContentGenerationError: If any generation step fails
+    """
+    original_message = {
+        "role": "system", 
+        "content": f"You are a book writer, writing a new book in {language} refered in the future as BookLanguage."
+    }
     history = [original_message]
-
-    for b in _write_title(book, original_title, history):
-        yield b
     
-    for b in _write_toc(book, instructions, history):
-        yield b
+    # Emit generation started event
+    event_manager.emit(Event(EventType.GENERATION_STARTED, {
+        'title': original_title,
+        'language': language,
+        'instructions': instructions
+    }))
     
-    for b in _write_summary(book, instructions, history):
-        yield b
-
-    for chapter in book['toc']['chapters']:
-        for b in _write_chapter(book, chapter, history):
+    try:
+        # Generate each component with error handling
+        for b in _write_title(book, original_title, history):
             yield b
-
-        for section in chapter['sections']:
-            for b in _write_section(book, chapter, section, history):
+        
+        for b in _write_toc(book, instructions, history):
+            yield b
+        
+        for b in _write_summary(book, instructions, history):
+            yield b
+        
+        # Generate chapters and sections
+        for chapter in book['toc']['chapters']:
+            for b in _write_chapter(book, chapter, history):
                 yield b
-
-    logging.info("")
-    logging.info("# Book is finished!")
-    yield book
+            
+            for section in chapter['sections']:
+                for b in _write_section(book, chapter, section, history):
+                    yield b
+        
+        logging.info("")
+        logging.info("# Book is finished!")
+        
+        # Emit generation completed event
+        event_manager.emit(Event(EventType.GENERATION_COMPLETED, {
+            'title': book.get('title'),
+            'chapters': len(book['toc']['chapters']),
+            'total_sections': sum(len(ch['sections']) for ch in book['toc']['chapters'])
+        }))
+        
+        yield book
+        
+    except ContentGenerationError:
+        # Re-raise content generation errors
+        raise
+    except Exception as e:
+        # Wrap unexpected errors
+        logging.error(f"Unexpected error during book generation: {e}")
+        event_manager.emit(Event(EventType.GENERATION_FAILED, {
+            'stage': 'unknown',
+            'error': str(e)
+        }))
+        raise ContentGenerationError(f"Book generation failed: {e}")
