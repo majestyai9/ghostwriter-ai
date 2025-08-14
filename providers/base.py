@@ -2,7 +2,7 @@
 Base LLM Provider Interface
 """
 from abc import ABC, abstractmethod
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Generator
 from dataclasses import dataclass
 import logging
 
@@ -107,3 +107,25 @@ class LLMProvider(ABC):
         messages = history.copy() if history else []
         messages.append({"role": "user", "content": prompt})
         return messages
+        
+    def generate_stream(self,
+                       prompt: str,
+                       history: List[Dict[str, str]] = None,
+                       max_tokens: int = 1024,
+                       temperature: float = 0.7,
+                       **kwargs) -> Generator[str, None, None]:
+        """
+        Generate text with streaming (optional implementation)
+        
+        Args:
+            prompt: Input prompt
+            history: Conversation history  
+            max_tokens: Maximum tokens to generate
+            temperature: Sampling temperature
+            
+        Yields:
+            Text chunks as they're generated
+        """
+        # Default implementation: yield complete response
+        response = self.generate(prompt, history, max_tokens, temperature, **kwargs)
+        yield response.content
