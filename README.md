@@ -92,6 +92,15 @@ An advanced AI-powered book writing application that supports multiple LLM provi
 - **Multiple cache backends** - Memory, Redis, File-based
 - **Progress tracking** - Monitor generation in real-time
 
+### 🧠 Hybrid RAG System (NEW)
+- **Semantic Search** - FAISS-powered vector search for relevant context retrieval
+- **Smart Summarization** - LLM-based chapter summaries for better context
+- **Hybrid Context** - Intelligent token allocation (40% core, 40% RAG, 20% summaries)
+- **Vector Indexing** - Automatic book content indexing with sentence-transformers
+- **Persistent Storage** - Vector stores saved in `.rag/` directory per book
+- **Backward Compatible** - Seamless fallback to legacy system when needed
+- **Configurable Modes** - Choose from disabled, basic, hybrid, or full RAG modes
+
 ## Installation
 
 1. Clone the repository:
@@ -339,6 +348,7 @@ ghostwriter-ai/
 ├── streaming.py           # Real-time streaming
 ├── cache_manager.py       # Smart caching system
 ├── token_optimizer.py     # Context window management
+├── token_optimizer_rag.py # Hybrid RAG-enhanced context management
 ├── background_tasks.py    # Async task processing
 ├── PERFORMANCE.md         # Performance optimization guide
 └── requirements.txt       # Python dependencies
@@ -445,6 +455,17 @@ projects/
 ### Features
 - `ENABLE_PROGRESS_TRACKING` - Progress monitoring
 - `PROGRESS_CALLBACK_URL` - Webhook for updates
+
+### RAG Configuration
+- `ENABLE_RAG` - Enable/disable RAG features (default: true)
+- `RAG_MODE` - RAG operation mode: disabled, basic, hybrid, full (default: hybrid)
+- `RAG_EMBEDDING_MODEL` - Sentence transformer model (default: all-MiniLM-L6-v2)
+- `RAG_CHUNK_SIZE` - Text chunk size for indexing (default: 512)
+- `RAG_TOP_K` - Number of similar chunks to retrieve (default: 10)
+- `RAG_SIMILARITY_THRESHOLD` - Minimum similarity score (default: 0.5)
+- `RAG_CORE_CONTEXT_RATIO` - Token allocation for core context (default: 0.4)
+- `RAG_RETRIEVED_CONTEXT_RATIO` - Token allocation for RAG content (default: 0.4)
+- `RAG_SUMMARY_CONTEXT_RATIO` - Token allocation for summaries (default: 0.2)
 
 ## Troubleshooting
 

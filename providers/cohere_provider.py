@@ -2,10 +2,16 @@
 Cohere Provider Implementation
 """
 import time
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Generator
 
 from events import Event, EventType, event_manager
-from exceptions import APIKeyError, LLMProviderError, RateLimitError
+from exceptions import (
+    ProviderAuthError,
+    ProviderRateLimitError,
+    ProviderContentFilterError,
+    TokenLimitError,
+    ProviderError,
+)
 
 from .base import LLMProvider, LLMResponse
 
@@ -21,12 +27,11 @@ class CohereProvider(LLMProvider):
     def _validate_config(self):
         """Validate Cohere configuration"""
         if not COHERE_AVAILABLE:
-            raise LLMProviderError("Cohere package not installed. Run: pip install cohere")
+            raise ProviderError("Cohere package not installed. Run: pip install cohere")
 
         if not self.config.get('api_key'):
-            raise APIKeyError("Cohere API key is required")
+            raise ProviderAuthError("Cohere API key is required")
 
-        # Latest Cohere models (as of 2024)
         self.model = self.config.get('model', 'command-r-plus')
         self.max_tokens_limit = self.config.get('token_limit', 128000)
 
@@ -41,10 +46,8 @@ class CohereProvider(LLMProvider):
                 **kwargs) -> LLMResponse:
         """Generate text using Cohere API"""
 
-        # Convert history to chat format
         chat_history = self._convert_history(history) if history else []
 
-        # Emit API call started event
         event_manager.emit(Event(EventType.API_CALL_STARTED, {
             'provider': 'cohere',
             'model': self.model,
@@ -53,6 +56,7 @@ class CohereProvider(LLMProvider):
 
         try:
             response = self._call_with_retry(
+                self._create_chat,
                 message=prompt,
                 chat_history=chat_history,
                 max_tokens=max_tokens,
@@ -60,11 +64,9 @@ class CohereProvider(LLMProvider):
                 **kwargs
             )
 
-            # Extract response data
             content = response.text
             tokens_used = response.meta.get('tokens', {}).get('output_tokens', 0)
 
-            # Emit API call completed event
             event_manager.emit(Event(EventType.API_CALL_COMPLETED, {
                 'provider': 'cohere',
                 'model': self.model,
@@ -80,26 +82,46 @@ class CohereProvider(LLMProvider):
                 raw_response=response.__dict__ if hasattr(response, '__dict__') else None
             )
 
-        except cohere.error.CohereAPIError as e:
-            if 'rate limit' in str(e).lower():
-                event_manager.emit(Event(EventType.RATE_LIMIT_HIT, {
-                    'provider': 'cohere',
-                    'error': str(e)
-                }))
-                raise RateLimitError(str(e))
-            else:
-                event_manager.emit(Event(EventType.API_CALL_FAILED, {
-                    'provider': 'cohere',
-                    'error': str(e)
-                }))
-                raise LLMProviderError(f"Cohere API error: {e}")
+        except Exception as e:
+            raise self._handle_error(e)
+
+    def generate_stream(self,
+                       prompt: str,
+                       history: List[Dict[str, str]] = None,
+                       max_tokens: int = 1024,
+                       temperature: float = 0.7,
+                       **kwargs) -> Generator[str, None, None]:
+        """Generate text with streaming using Cohere API"""
+
+        chat_history = self._convert_history(history) if history else []
+
+        event_manager.emit(Event(EventType.API_CALL_STARTED, {
+            'provider': 'cohere',
+            'model': self.model,
+            'max_tokens': max_tokens,
+            'streaming': True
+        }))
+
+        try:
+            stream = self.client.chat(
+                message=prompt,
+                chat_history=chat_history,
+                model=self.model,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                stream=True,
+                **kwargs
+            )
+
+            for event in stream:
+                if event.event_type == "text-generation":
+                    yield event.text
 
         except Exception as e:
-            event_manager.emit(Event(EventType.API_CALL_FAILED, {
-                'provider': 'cohere',
-                'error': str(e)
-            }))
-            raise LLMProviderError(f"Unexpected error: {e}")
+            raise self._handle_error(e)
+
+    def _create_chat(self, **kwargs):
+        return self.client.chat(**kwargs)
 
     def _convert_history(self, history: List[Dict[str, str]]) -> List[Dict[str, str]]:
         """Convert message history to Cohere chat format"""
@@ -108,7 +130,6 @@ class CohereProvider(LLMProvider):
         for msg in history:
             role = msg['role']
             if role == 'system':
-                # Cohere doesn't have system messages, prepend to first user message
                 continue
             elif role == 'user':
                 chat_history.append({
@@ -123,68 +144,15 @@ class CohereProvider(LLMProvider):
 
         return chat_history
 
-    def _call_with_retry(self, message, chat_history, max_tokens, temperature, max_retries=3, **kwargs):
-        """Make API call with retry logic"""
-        for attempt in range(max_retries):
-            try:
-                if self.model in ['command-r-plus', 'command-r', 'command', 'command-light', 'command-nightly']:
-                    # Use chat endpoint for command models
-                    return self.client.chat(
-                        message=message,
-                        chat_history=chat_history,
-                        model=self.model,
-                        max_tokens=max_tokens,
-                        temperature=temperature,
-                        **kwargs
-                    )
-                else:
-                    # Use generate endpoint for other models
-                    full_prompt = self._format_prompt_with_history(message, chat_history)
-                    return self.client.generate(
-                        prompt=full_prompt,
-                        model=self.model,
-                        max_tokens=max_tokens,
-                        temperature=temperature,
-                        **kwargs
-                    )
-
-            except Exception as e:
-                if 'rate limit' in str(e).lower() and attempt < max_retries - 1:
-                    retry_after = 30
-                    event_manager.emit(Event(EventType.RETRY_ATTEMPTED, {
-                        'provider': 'cohere',
-                        'attempt': attempt + 1,
-                        'retry_after': retry_after
-                    }))
-                    self.logger.info(f"Rate limit hit, retrying in {retry_after} seconds...")
-                    time.sleep(retry_after)
-                else:
-                    raise
-
-    def _format_prompt_with_history(self, message: str, chat_history: List[Dict[str, str]]) -> str:
-        """Format prompt with chat history for generate endpoint"""
-        formatted = ""
-        for entry in chat_history:
-            role = entry['role']
-            content = entry['message']
-            formatted += f"{role}: {content}\n"
-        formatted += f"USER: {message}\nCHATBOT:"
-        return formatted
-
-    def count_tokens(self, text: str) -> int:
-        """Count tokens using Cohere's tokenize method"""
-        try:
-            # Use the official tokenize method
-            response = self.client.tokenize(
-                text=text,
-                model=self.model,
-                offline=False  # Use API-based tokenizer for accuracy
-            )
-            return len(response.tokens)
-        except Exception as e:
-            self.logger.warning(f"Token counting failed, using fallback: {e}")
-            # Fallback to rough approximation
-            return len(text) // 4
+    def _handle_error(self, error: Exception) -> ProviderError:
+        if isinstance(error, cohere.errors.AuthError):
+            return ProviderAuthError(str(error))
+        elif isinstance(error, cohere.errors.RateLimitError):
+            return ProviderRateLimitError(str(error))
+        elif isinstance(error, cohere.errors.CohereError):
+            return ProviderError(str(error))
+        else:
+            return ProviderError(str(error))
 
     def get_model_info(self) -> Dict[str, Any]:
         """Get Cohere model information"""

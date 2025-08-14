@@ -8,6 +8,8 @@ from abc import ABC, abstractmethod
 from collections.abc import Generator
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional
+from tokenizer import BaseTokenizer, TokenizerFactory
+from exceptions import ProviderError
 
 
 @dataclass
@@ -31,7 +33,9 @@ class LLMProvider(ABC):
         """
         self.config = config
         self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
+        self.tokenizer: Optional[BaseTokenizer] = None
         self._validate_config()
+        self._init_tokenizer()
 
     @abstractmethod
     def _validate_config(self):
@@ -61,9 +65,35 @@ class LLMProvider(ABC):
         pass
 
     @abstractmethod
+    def generate_stream(self,
+                       prompt: str,
+                       history: List[Dict[str, str]] = None,
+                       max_tokens: int = 1024,
+                       temperature: float = 0.7,
+                       **kwargs) -> Generator[str, None, None]:
+        """
+        Generate text with streaming (optional implementation)
+        
+        Args:
+            prompt: Input prompt
+            history: Conversation history  
+            max_tokens: Maximum tokens to generate
+            temperature: Sampling temperature
+            
+        Yields:
+            Text chunks as they're generated
+        """
+        pass
+
+    def _init_tokenizer(self):
+        """Initialize tokenizer for the provider"""
+        provider_name = self.config.get('provider', self.__class__.__name__.replace('Provider', '').lower())
+        model_name = getattr(self, 'model', None) or self.config.get('model')
+        self.tokenizer = TokenizerFactory.create(provider_name, model_name)
+    
     def count_tokens(self, text: str) -> int:
         """
-        Count tokens in text
+        Count tokens in text using the appropriate tokenizer
         
         Args:
             text: Input text
@@ -71,7 +101,10 @@ class LLMProvider(ABC):
         Returns:
             Number of tokens
         """
-        pass
+        if self.tokenizer:
+            return self.tokenizer.count_tokens(text)
+        # Fallback to rough approximation
+        return len(text) // 4
 
     @abstractmethod
     def get_model_info(self) -> Dict[str, Any]:
@@ -112,107 +145,16 @@ class LLMProvider(ABC):
         messages.append({"role": "user", "content": prompt})
         return messages
 
-    def generate_stream(self,
-                       prompt: str,
-                       history: List[Dict[str, str]] = None,
-                       max_tokens: int = 1024,
-                       temperature: float = 0.7,
-                       **kwargs) -> Generator[str, None, None]:
+    def _handle_error(self, error: Exception) -> ProviderError:
         """
-        Generate text with streaming (optional implementation)
-        
-        Args:
-            prompt: Input prompt
-            history: Conversation history  
-            max_tokens: Maximum tokens to generate
-            temperature: Sampling temperature
-            
-        Yields:
-            Text chunks as they're generated
-        """
-        # Default implementation: yield complete response
-        response = self.generate(prompt, history, max_tokens, temperature, **kwargs)
-        yield response.content
+        Translate provider-specific exceptions into standardized exceptions.
 
-    def _call_with_retry(self,
-                        api_call: Callable,
-                        max_retries: int = 3,
-                        base_delay: float = 1.0,
-                        max_delay: float = 60.0,
-                        exponential_base: float = 2.0,
-                        jitter: bool = True,
-                        retry_on: Optional[List[type]] = None,
-                        **kwargs) -> Any:
-        """
-        Generic retry logic for API calls
-        
         Args:
-            api_call: Function to call
-            max_retries: Maximum number of retry attempts
-            base_delay: Initial delay between retries in seconds
-            max_delay: Maximum delay between retries
-            exponential_base: Base for exponential backoff
-            jitter: Add random jitter to delays
-            retry_on: List of exception types to retry on (None = all)
-            **kwargs: Arguments to pass to api_call
-            
+            error: The provider-specific exception.
+
         Returns:
-            Result from successful API call
-            
-        Raises:
-            Last exception if all retries failed
+            A standardized exception from exceptions.py.
         """
-        retry_on = retry_on or [Exception]
-        last_exception = None
-
-        for attempt in range(max_retries):
-            try:
-                return api_call(**kwargs)
-
-            except tuple(retry_on) as e:
-                last_exception = e
-
-                if attempt < max_retries - 1:
-                    # Calculate delay with exponential backoff
-                    delay = min(base_delay * (exponential_base ** attempt), max_delay)
-
-                    # Add jitter if requested
-                    if jitter:
-                        delay = delay * (0.5 + random.random())
-
-                    self.logger.warning(
-                        f"Attempt {attempt + 1}/{max_retries} failed: {e}. "
-                        f"Retrying in {delay:.2f} seconds..."
-                    )
-
-                    time.sleep(delay)
-                else:
-                    self.logger.error(f"All {max_retries} attempts failed. Last error: {e}")
-
-        raise last_exception
-
-    def _should_retry(self, exception: Exception) -> bool:
-        """
-        Determine if an exception should trigger a retry
-        Can be overridden by subclasses for provider-specific logic
-        
-        Args:
-            exception: The exception that occurred
-            
-        Returns:
-            True if should retry, False otherwise
-        """
-        # Common retryable conditions
-        error_str = str(exception).lower()
-        retryable_patterns = [
-            'rate limit',
-            'quota',
-            'timeout',
-            'connection',
-            'temporary',
-            '429',  # Too Many Requests
-            '503',  # Service Unavailable
-            '504',  # Gateway Timeout
-        ]
-
-        return any(pattern in error_str for pattern in retryable_patterns)
+        # This is a basic implementation. Subclasses should override this
+        # to handle their specific exceptions.
+        return ProviderError(str(error))

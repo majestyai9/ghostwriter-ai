@@ -2,9 +2,11 @@
 Token optimization with sliding window context management
 """
 import logging
+import re
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from functools import lru_cache
+from typing import Any, Dict, List, Optional, Tuple
 
 
 class ContextPriority(Enum):
@@ -107,9 +109,23 @@ class SlidingWindowManager:
             metadata={**element.metadata, 'compressed': True}
         )
 
+    @lru_cache(maxsize=1024)
     def _estimate_tokens(self, text: str) -> int:
-        """Estimate token count (rough approximation)"""
-        return len(text) // 4
+        """
+        Estimate token count with improved accuracy and caching
+        Uses 1.3 tokens per word formula with punctuation factor
+        """
+        if not text:
+            return 0
+        
+        # Count words and punctuation
+        words = len(text.split())
+        punctuation_count = sum(1 for char in text if char in '.,;:!?"\'()[]{}')
+        
+        # Improved estimation: ~1.3 tokens per word + punctuation factor
+        estimated_tokens = int(words * 1.3 + punctuation_count * 0.1)
+        
+        return estimated_tokens
 
 class BookContextManager:
     """Manages context specifically for book generation"""
@@ -247,27 +263,55 @@ class BookContextManager:
 
         return summary
 
+    @lru_cache(maxsize=1024)
     def _estimate_tokens(self, text: str) -> int:
-        """Estimate token count"""
-        return len(text) // 4
+        """
+        Estimate token count with improved accuracy and caching
+        Uses 1.3 tokens per word formula with punctuation factor
+        """
+        if not text:
+            return 0
+        
+        # Count words and punctuation
+        words = len(text.split())
+        punctuation_count = sum(1 for char in text if char in '.,;:!?"\'()[]{}')
+        
+        # Improved estimation: ~1.3 tokens per word + punctuation factor
+        estimated_tokens = int(words * 1.3 + punctuation_count * 0.1)
+        
+        return estimated_tokens
 
 class TokenOptimizer:
-    """Main token optimization interface"""
+    """
+    Main token optimization interface with efficient caching and batch processing
+    
+    Features:
+    - Token count caching with LRU cache
+    - Batch token counting for efficiency
+    - Provider-specific tokenizers when available
+    - Improved estimation accuracy
+    """
 
-    def __init__(self, provider=None):
+    def __init__(self, provider=None, cache_size: int = 2048):
         """
         Initialize token optimizer
         
         Args:
             provider: LLM provider for accurate token counting
+            cache_size: Size of token count cache (default: 2048)
         """
         self.provider = provider
         self.book_manager = BookContextManager()
         self.logger = logging.getLogger(__name__)
+        
+        # Token cache dictionary for frequently accessed strings
+        self.token_cache: Dict[int, int] = {}  # hash -> token count
+        self.cache_size = cache_size
 
+    @lru_cache(maxsize=2048)
     def count_tokens(self, text: str) -> int:
         """
-        Count tokens in text
+        Count tokens in text with caching
         
         Args:
             text: Text to count
@@ -275,11 +319,98 @@ class TokenOptimizer:
         Returns:
             Token count
         """
+        if not text:
+            return 0
+        
+        # Check provider's tokenizer first
         if self.provider and hasattr(self.provider, 'count_tokens'):
-            return self.provider.count_tokens(text)
-        else:
-            # Rough estimation
-            return len(text) // 4
+            try:
+                return self.provider.count_tokens(text)
+            except Exception as e:
+                self.logger.warning(f"Provider token counting failed: {e}, using estimation")
+        
+        # Use improved estimation with caching
+        return self._estimate_tokens_improved(text)
+    
+    @lru_cache(maxsize=2048)
+    def _estimate_tokens_improved(self, text: str) -> int:
+        """
+        Improved token estimation with 1.3 tokens per word formula
+        
+        Args:
+            text: Text to estimate
+            
+        Returns:
+            Estimated token count
+        """
+        if not text:
+            return 0
+        
+        # Count words and special characters
+        words = len(text.split())
+        
+        # Count various punctuation and special characters
+        punctuation_count = sum(1 for char in text if char in '.,;:!?"\'()[]{}')
+        special_chars = sum(1 for char in text if char in '@#$%^&*+=<>/\\|`~')
+        
+        # Improved formula: ~1.3 tokens per word + factors for punctuation and special chars
+        base_tokens = words * 1.3
+        punctuation_factor = punctuation_count * 0.1
+        special_factor = special_chars * 0.2
+        
+        estimated_tokens = int(base_tokens + punctuation_factor + special_factor)
+        
+        return max(1, estimated_tokens)  # At least 1 token for non-empty text
+    
+    def count_tokens_batch(self, texts: List[str]) -> List[int]:
+        """
+        Count tokens for multiple texts efficiently
+        
+        Args:
+            texts: List of texts to count
+            
+        Returns:
+            List of token counts
+        """
+        results = []
+        
+        # If provider supports batch counting, use it
+        if self.provider and hasattr(self.provider, 'count_tokens_batch'):
+            try:
+                return self.provider.count_tokens_batch(texts)
+            except Exception as e:
+                self.logger.warning(f"Batch token counting failed: {e}, using individual counting")
+        
+        # Otherwise, count individually with caching
+        for text in texts:
+            results.append(self.count_tokens(text))
+        
+        return results
+    
+    def estimate_message_tokens(self, messages: List[Dict[str, str]]) -> int:
+        """
+        Estimate total tokens in a message list
+        
+        Args:
+            messages: List of message dictionaries
+            
+        Returns:
+            Total estimated token count
+        """
+        total = 0
+        
+        for message in messages:
+            # Count role tokens (usually 1-2 tokens)
+            total += 2
+            
+            # Count content tokens
+            content = message.get('content', '')
+            total += self.count_tokens(content)
+            
+            # Add separator tokens (usually 3-4 tokens between messages)
+            total += 4
+        
+        return total
 
     def optimize_messages(self,
                          messages: List[Dict[str, str]],

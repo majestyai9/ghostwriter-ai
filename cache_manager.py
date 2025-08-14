@@ -7,6 +7,7 @@ import logging
 import pickle
 import threading
 import time
+from collections import OrderedDict
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -35,67 +36,165 @@ class CacheBackend:
         raise NotImplementedError
 
 class MemoryCache(CacheBackend):
-    """In-memory cache backend with LRU eviction and thread safety"""
+    """
+    In-memory cache backend with proper LRU eviction, automatic cleanup,
+    and thread safety using RLock for nested locking support.
+    
+    Features:
+    - OrderedDict for O(1) LRU operations
+    - Automatic periodic cleanup of expired entries
+    - Thread-safe with RLock for nested operations
+    - Proper move_to_end for access tracking
+    
+    Args:
+        max_size: Maximum number of cache entries (default: 1000)
+        cleanup_interval: Seconds between automatic cleanups (default: 300)
+    """
 
-    def __init__(self, max_size: int = 1000):
-        self.cache = {}
-        self.access_times = {}
+    def __init__(self, max_size: int = 1000, cleanup_interval: int = 300):
+        self.cache = OrderedDict()  # Using OrderedDict for proper LRU
         self.max_size = max_size
+        self.cleanup_interval = cleanup_interval
         self.logger = logging.getLogger(__name__)
-        self.lock = threading.Lock()  # Thread safety lock
+        self.lock = threading.RLock()  # RLock for nested locking safety
+        self.last_cleanup = time.time()
+        
+        # Start background cleanup thread
+        self._start_cleanup_thread()
+
+    def _start_cleanup_thread(self):
+        """Start a daemon thread for periodic cleanup of expired entries"""
+        def cleanup_worker():
+            while True:
+                time.sleep(self.cleanup_interval)
+                self._cleanup_expired()
+        
+        cleanup_thread = threading.Thread(target=cleanup_worker, daemon=True)
+        cleanup_thread.start()
+
+    def _cleanup_expired(self):
+        """Remove all expired entries from cache"""
+        with self.lock:
+            current_time = time.time()
+            expired_keys = []
+            
+            for key, entry in self.cache.items():
+                if entry['expire'] and entry['expire'] < current_time:
+                    expired_keys.append(key)
+            
+            for key in expired_keys:
+                del self.cache[key]
+                self.logger.debug(f"Cleaned up expired cache entry: {key}")
+            
+            if expired_keys:
+                self.logger.info(f"Cleaned up {len(expired_keys)} expired cache entries")
+            
+            self.last_cleanup = current_time
+
+    def _maybe_cleanup(self):
+        """Perform cleanup if enough time has passed since last cleanup"""
+        current_time = time.time()
+        if current_time - self.last_cleanup > self.cleanup_interval:
+            self._cleanup_expired()
 
     def get(self, key: str) -> Optional[Any]:
+        """
+        Get value from cache with LRU tracking
+        
+        Args:
+            key: Cache key
+            
+        Returns:
+            Cached value or None if not found/expired
+        """
         with self.lock:
             if key in self.cache:
                 entry = self.cache[key]
+                
+                # Check expiration
                 if entry['expire'] and entry['expire'] < time.time():
                     del self.cache[key]
-                    if key in self.access_times:
-                        del self.access_times[key]
                     return None
-                self.access_times[key] = time.time()
+                
+                # Move to end (most recently used) for LRU
+                self.cache.move_to_end(key)
+                entry['last_accessed'] = time.time()
+                
                 return entry['value']
             return None
 
     def set(self, key: str, value: Any, expire: int = None):
+        """
+        Set value in cache with LRU eviction if needed
+        
+        Args:
+            key: Cache key
+            value: Value to cache
+            expire: Optional expiration time in seconds
+        """
         with self.lock:
-            # LRU eviction if needed
-            if len(self.cache) >= self.max_size and key not in self.cache:
-                if self.access_times:  # Check if there are any items to evict
-                    lru_key = min(self.access_times, key=self.access_times.get)
-                    del self.cache[lru_key]
-                    del self.access_times[lru_key]
-
+            current_time = time.time()
+            
+            # Check if we need to evict (only if adding new key)
+            if key not in self.cache and len(self.cache) >= self.max_size:
+                # Remove least recently used (first item in OrderedDict)
+                lru_key = next(iter(self.cache))
+                del self.cache[lru_key]
+                self.logger.debug(f"Evicted LRU cache entry: {lru_key}")
+            
+            # Add or update entry
             self.cache[key] = {
                 'value': value,
-                'expire': time.time() + expire if expire else None,
-                'created': time.time()
+                'expire': current_time + expire if expire else None,
+                'created': current_time,
+                'last_accessed': current_time
             }
-            self.access_times[key] = time.time()
+            
+            # Move to end (most recently used)
+            self.cache.move_to_end(key)
+            
+            # Periodic cleanup check
+            self._maybe_cleanup()
 
     def delete(self, key: str):
+        """Delete entry from cache"""
         with self.lock:
             if key in self.cache:
                 del self.cache[key]
-            if key in self.access_times:
-                del self.access_times[key]
 
     def exists(self, key: str) -> bool:
+        """Check if key exists and is not expired"""
         with self.lock:
             if key in self.cache:
                 entry = self.cache[key]
                 if entry['expire'] and entry['expire'] < time.time():
                     del self.cache[key]
-                    if key in self.access_times:
-                        del self.access_times[key]
                     return False
                 return True
             return False
 
     def clear(self):
+        """Clear all cache entries"""
         with self.lock:
             self.cache.clear()
-            self.access_times.clear()
+            self.logger.info("Cache cleared")
+    
+    def get_stats(self) -> Dict[str, Any]:
+        """Get cache statistics including memory usage"""
+        with self.lock:
+            total_entries = len(self.cache)
+            expired_count = sum(
+                1 for entry in self.cache.values()
+                if entry['expire'] and entry['expire'] < time.time()
+            )
+            
+            return {
+                'total_entries': total_entries,
+                'expired_entries': expired_count,
+                'active_entries': total_entries - expired_count,
+                'max_size': self.max_size,
+                'usage_percent': (total_entries / self.max_size * 100) if self.max_size > 0 else 0
+            }
 
 class RedisCache(CacheBackend):
     """Redis cache backend"""

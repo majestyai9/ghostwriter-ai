@@ -10,21 +10,25 @@ class ConfigurationError(GhostwriterException):
     """Raised when there's a configuration issue"""
     pass
 
-class LLMProviderError(GhostwriterException):
-    """Base exception for LLM provider issues"""
+class ProviderError(GhostwriterException):
+    """Base class for all provider-related errors."""
     pass
 
-class APIKeyError(LLMProviderError):
-    """Raised when API key is missing or invalid"""
+class ProviderAuthError(ProviderError):
+    """Raised for authentication failures (e.g., invalid API key)."""
     pass
 
-class RateLimitError(LLMProviderError):
-    """Raised when API rate limit is exceeded"""
+class ProviderRateLimitError(ProviderError):
+    """Raised when an API rate limit is exceeded."""
     def __init__(self, message, retry_after=None):
         super().__init__(message)
         self.retry_after = retry_after
 
-class TokenLimitError(LLMProviderError):
+class ProviderContentFilterError(ProviderError):
+    """Raised when a request is blocked by a content filter."""
+    pass
+
+class TokenLimitError(ProviderError):
     """Raised when token limit is exceeded"""
     def __init__(self, message, tokens_used=None, token_limit=None):
         super().__init__(message)

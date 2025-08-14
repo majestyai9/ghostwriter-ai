@@ -17,12 +17,14 @@ def create_book_frontpage(book_base_dir, book):
     summary = book['summary'] or f'Summary of "{title}" will be here'
 
     frontpage_file = f"{book_base_dir}/README.md"
+    temp_file = f"{frontpage_file}.partial"
     # if os.path.exists(frontpage_file):
     #     logging.info(f"File {frontpage_file} already exists. Skipping...")
     #     return
 
     # Create a markdown with book title and toc with links for each chapter and section
-    with open(frontpage_file, "w") as f:
+    # Write to temporary file first
+    with open(temp_file, "w") as f:
         f.write(f"# {title}\n\n")
         f.write(f"{summary}\n\n")
         f.write("## Índice\n\n")
