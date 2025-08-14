@@ -19,6 +19,47 @@ An advanced AI-powered book writing application that supports multiple LLM provi
 - Added safe JSON parsing to handle various LLM response formats
 - Improved error handling and logging throughout
 
+## Key Components & File Descriptions
+
+### Core System Files
+
+| File | Purpose | Key Features |
+|------|---------|--------------|
+| **main.py** | Application entry point | CLI interface, orchestrates generation workflow, event handler setup |
+| **app_config.py** | Configuration management | Pydantic settings with fallback, environment variable loading |
+| **containers.py** | Dependency injection | Thread-safe singleton management, service locator pattern |
+| **services/generation_service.py** | Core generation logic | Book generation workflow, chapter/section management |
+
+### LLM Provider System
+
+| File | Purpose | Key Features |
+|------|---------|--------------|
+| **providers/base.py** | Abstract base provider | Exponential backoff retry, rate limit handling, token counting |
+| **providers/factory.py** | Provider instantiation | Factory pattern, dynamic provider loading |
+| **providers/openai_provider.py** | OpenAI GPT-5 integration | 256k context, built-in thinking mode |
+| **providers/anthropic_provider.py** | Claude 4 integration | Hybrid reasoning, 200k context |
+| **providers/gemini_provider.py** | Gemini 2.5 integration | 2M context, Deep Think mode |
+
+### Advanced Features
+
+| File | Purpose | Key Features |
+|------|---------|--------------|
+| **token_optimizer_rag.py** | Hybrid RAG system | FAISS vector search, smart summarization, context optimization |
+| **character_development.py** | Character management | Profile tracking, relationship matrix, dialogue consistency |
+| **style_templates.py** | Writing styles | 15+ predefined styles, custom style creation, age ratings |
+| **export_formats.py** | Multi-format export | EPUB, PDF, DOCX, HTML generation with metadata |
+| **project_manager.py** | Project isolation | Complete project separation, archiving, metadata tracking |
+
+### Infrastructure Components
+
+| File | Purpose | Key Features |
+|------|---------|--------------|
+| **cache_manager.py** | Caching system | Multi-backend support (memory/Redis/file), TTL management |
+| **events.py** | Event system | Observer pattern, progress tracking, webhook support |
+| **exceptions.py** | Error handling | Custom exception hierarchy, graceful degradation |
+| **streaming.py** | Real-time streaming | Async content generation, progress updates |
+| **background_tasks.py** | Async processing | Celery/RQ integration, non-blocking operations |
+
 ## Features
 
 ### 🚀 Multiple LLM Provider Support (Latest 2025 Models)
@@ -321,56 +362,153 @@ switch_provider('anthropic', {
 
 ```
 ghostwriter-ai/
-├── providers/              # LLM provider implementations
-│   ├── base.py            # Base provider with retry logic
-│   ├── openai_provider.py # OpenAI implementation
-│   ├── anthropic_provider.py
-│   ├── cohere_provider.py
-│   ├── gemini_provider.py
-│   └── openrouter_provider.py
-├── templates/              # External templates
-│   └── prompts.yaml       # Customizable prompt templates
-├── main.py                # Main application entry
-├── generate.py            # Legacy generation logic
-├── generate_refactored.py # New BookGenerator class
-├── ai.py                  # AI interface layer
-├── ai_enhanced.py         # Enhanced AI with optimizations
-├── config.py              # Configuration management
-├── events.py              # Event system
-├── exceptions.py          # Custom exceptions
-├── prompts.py             # Legacy prompt templates
-├── prompts_templated.py   # New template-based prompts
-├── bookprinter.py         # Markdown output generation
-├── project_manager.py     # Project isolation & management
-├── style_templates.py     # Writing style templates
-├── character_development.py # Character tracking (fiction)
-├── export_formats.py      # EPUB/PDF/DOCX/HTML export
-├── streaming.py           # Real-time streaming
-├── cache_manager.py       # Smart caching system
-├── token_optimizer.py     # Context window management
-├── token_optimizer_rag.py # Hybrid RAG-enhanced context management
-├── background_tasks.py    # Async task processing
-├── PERFORMANCE.md         # Performance optimization guide
-└── requirements.txt       # Python dependencies
+├── Core Modules
+│   ├── main.py                        # Application entry point - orchestrates book generation
+│   ├── app_config.py                  # Settings management with Pydantic/fallback
+│   ├── containers.py                  # Dependency injection with thread safety
+│   └── services/
+│       └── generation_service.py      # Core book generation logic and workflow
+│
+├── LLM Providers (providers/)
+│   ├── base.py                        # Abstract base with exponential backoff retry
+│   ├── factory.py                     # Factory pattern for provider instantiation
+│   ├── openai_provider.py             # GPT-5 with built-in thinking (256k context)
+│   ├── anthropic_provider.py          # Claude 4 Opus/Sonnet (hybrid reasoning)
+│   ├── gemini_provider.py             # Gemini 2.5 Pro/Flash (2M context)
+│   ├── cohere_provider.py             # Command R+ (multilingual focus)
+│   └── openrouter_provider.py         # Universal access to all models
+│
+├── Advanced Features
+│   ├── token_optimizer_rag.py         # Hybrid RAG with FAISS + smart summarization
+│   ├── character_development.py       # Character profiles, arcs, relationships
+│   ├── style_templates.py             # 15+ writing styles (fiction/non-fiction)
+│   ├── export_formats.py              # Multi-format export (EPUB/PDF/DOCX/HTML)
+│   ├── project_manager.py             # Project isolation and lifecycle management
+│   └── prompts_templated.py           # Template-based prompt management
+│
+├── Infrastructure
+│   ├── cache_manager.py               # Multi-backend caching (memory/Redis/file)
+│   ├── events.py                      # Event-driven architecture for monitoring
+│   ├── exceptions.py                  # Custom exception hierarchy
+│   ├── streaming.py                   # Real-time content streaming
+│   ├── background_tasks.py            # Async task processing with Celery/RQ
+│   └── tokenizer.py                   # Token counting utilities
+│
+├── Configuration
+│   ├── pyproject.toml                 # Project config, Ruff, MyPy, Pytest settings
+│   ├── requirements.txt               # Core dependencies
+│   ├── requirements-dev.txt           # Development dependencies
+│   ├── env.example                    # Environment variables template
+│   └── templates/
+│       └── prompts.yaml               # Customizable prompt templates
+│
+├── Testing
+│   ├── tests/
+│   │   ├── conftest.py               # Shared pytest fixtures
+│   │   ├── test_integration.py       # End-to-end integration tests
+│   │   └── unit/
+│   │       ├── test_generation_service.py
+│   │       └── test_rag_integration.py
+│   └── Makefile                       # Test automation commands
+│
+├── Documentation
+│   ├── README.md                      # This file
+│   ├── CLAUDE.md                      # AI assistant instructions
+│   ├── PERFORMANCE.md                 # Performance optimization guide
+│   └── primer.md                      # Quick start guide
+│
+└── Generated Content (gitignored)
+    ├── projects/                      # Isolated book projects
+    │   └── <project-id>/
+    │       ├── project.json          # Project metadata
+    │       ├── content/              # Book chapters and sections
+    │       ├── .rag/                 # Vector stores for RAG
+    │       ├── cache/                # Project-specific cache
+    │       └── exports/              # Generated formats
+    └── books/                         # Legacy book storage
 ```
+
+## Architectural Patterns & Design Principles
+
+### 1. Clean Architecture
+The codebase follows clean architecture principles with clear separation of concerns:
+
+- **Domain Layer**: Core business logic (book generation, character management)
+- **Application Layer**: Use cases and services (GenerationService)
+- **Infrastructure Layer**: External interfaces (LLM providers, cache, storage)
+- **Presentation Layer**: CLI interface and export formats
+
+### 2. Design Patterns Implemented
+
+#### Factory Pattern
+```python
+# providers/factory.py
+provider = ProviderFactory.create_provider("openai", config)
+```
+
+#### Dependency Injection
+```python
+# containers.py - Thread-safe singleton management
+container = AppContainer()
+service = container.generation_service()
+```
+
+#### Observer Pattern
+```python
+# events.py - Event-driven architecture
+event_manager.subscribe(EventType.CHAPTER_COMPLETED, handler)
+event_manager.emit(Event(EventType.CHAPTER_COMPLETED, data))
+```
+
+#### Strategy Pattern
+```python
+# Multiple LLM providers implementing common interface
+class LLMProvider(ABC):
+    @abstractmethod
+    def generate(self, prompt: str) -> str: pass
+```
+
+### 3. SOLID Principles
+
+- **Single Responsibility**: Each module has one clear purpose
+- **Open/Closed**: Extensible via base classes, closed for modification
+- **Liskov Substitution**: All providers are interchangeable
+- **Interface Segregation**: Focused interfaces for each feature
+- **Dependency Inversion**: Depend on abstractions, not implementations
+
+### 4. Key Architectural Features
+
+#### Hybrid RAG System
+Combines three context strategies for optimal performance:
+- **40% Core Context**: Recent chapters and book structure
+- **40% RAG Retrieved**: Semantically similar content via FAISS
+- **20% Summaries**: LLM-generated chapter summaries
+
+#### Thread-Safe Implementation
+- Double-checked locking for singletons
+- Thread-safe cache operations
+- Concurrent request handling
+
+#### Graceful Degradation
+- Fallback when optional dependencies missing
+- Partial book saving on failures
+- Automatic retry with exponential backoff
 
 ## Code Architecture Highlights
 
-### BookGenerator Class (New)
+### BookGenerator Class
 The refactored `BookGenerator` class provides a clean, DRY approach to book generation:
 
 ```python
-from generate_refactored import BookGenerator
+from services.generation_service import GenerationService
 
-# Initialize with book data and history
-generator = BookGenerator(book, history)
-
-# Use generic _generate_part method internally
-# Eliminates code duplication across title, TOC, chapters, sections
+# Unified generation interface
+service = GenerationService(provider, cache, token_optimizer)
+book = service.generate_book(title, instructions, language)
 ```
 
 ### Centralized Retry Logic
-All providers now inherit robust retry logic from the base class:
+All providers inherit robust retry logic from the base class:
 
 ```python
 class LLMProvider(ABC):
@@ -391,17 +529,20 @@ chapter:
     Write Chapter {chapter_number}: {chapter_title}
     Book: "{title}"
     Topics to cover: {topics}
-    ...
+    Style: {style}
+    Previous context: {context}
 ```
 
-### Dependency Injection
-Project isolation through proper dependency injection:
+### Project Isolation
+Complete project isolation through dependency injection:
 
 ```python
-# No more global singletons
-pm = get_project_manager()
-cache = pm.get_cache_manager()  # Per-project instance
-style_mgr = pm.get_style_manager()  # Isolated managers
+# Each project has isolated resources
+pm = ProjectManager()
+project = pm.create_project(title="My Book")
+cache = project.get_cache_manager()     # Project-specific cache
+rag = project.get_rag_manager()         # Project-specific vectors
+exporter = project.get_exporter()       # Project-specific exports
 ```
 
 ## Generated Output

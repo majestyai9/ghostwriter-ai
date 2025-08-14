@@ -88,7 +88,8 @@ else:
             self.BOOK_INSTRUCTIONS = os.getenv('BOOK_INSTRUCTIONS')
             self.BOOK_LANGUAGE = os.getenv('BOOK_LANGUAGE')
             self.BOOK_TITLE = os.getenv('BOOK_TITLE')
-            self.ENABLE_PROGRESS_TRACKING = os.getenv('ENABLE_PROGRESS_TRACKING', 'False').lower() == 'true'
+            progress_track = os.getenv('ENABLE_PROGRESS_TRACKING', 'False')
+            self.ENABLE_PROGRESS_TRACKING = progress_track.lower() == 'true'
             
             # RAG settings
             self.ENABLE_RAG = os.getenv('ENABLE_RAG', 'True').lower() == 'true'
@@ -98,7 +99,8 @@ else:
             self.RAG_TOP_K = int(os.getenv('RAG_TOP_K', '10'))
             self.RAG_SIMILARITY_THRESHOLD = float(os.getenv('RAG_SIMILARITY_THRESHOLD', '0.5'))
             self.RAG_CORE_CONTEXT_RATIO = float(os.getenv('RAG_CORE_CONTEXT_RATIO', '0.4'))
-            self.RAG_RETRIEVED_CONTEXT_RATIO = float(os.getenv('RAG_RETRIEVED_CONTEXT_RATIO', '0.4'))
+            retrieved_ratio = os.getenv('RAG_RETRIEVED_CONTEXT_RATIO', '0.4')
+            self.RAG_RETRIEVED_CONTEXT_RATIO = float(retrieved_ratio)
             self.RAG_SUMMARY_CONTEXT_RATIO = float(os.getenv('RAG_SUMMARY_CONTEXT_RATIO', '0.2'))
         
         def _load_env_file(self):

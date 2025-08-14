@@ -1,9 +1,10 @@
 """
-Token optimization with sliding window context management
+Token optimization with sliding window context management and budget tracking.
 """
 import logging
 import re
-from dataclasses import dataclass
+import warnings
+from dataclasses import dataclass, field
 from enum import Enum
 from functools import lru_cache
 from typing import Any, Dict, List, Optional, Tuple
@@ -499,18 +500,28 @@ class TokenOptimizer:
             }
         return None
 
-# Global token optimizer
-token_optimizer = None
+# Global token optimizer with thread safety
+import threading
 
-def initialize_optimizer(provider=None):
-    """Initialize global token optimizer"""
-    global token_optimizer
-    token_optimizer = TokenOptimizer(provider)
-    return token_optimizer
+_token_optimizer = None
+_optimizer_lock = threading.Lock()
+
+def initialize_optimizer(provider=None, max_tokens: int = 128000):
+    """Initialize global token optimizer with thread safety."""
+    global _token_optimizer
+    with _optimizer_lock:
+        _token_optimizer = TokenOptimizer(provider, max_tokens_per_request=max_tokens)
+    return _token_optimizer
 
 def get_optimizer() -> TokenOptimizer:
-    """Get global token optimizer"""
-    global token_optimizer
-    if token_optimizer is None:
-        token_optimizer = TokenOptimizer()
-    return token_optimizer
+    """Get global token optimizer with double-checked locking."""
+    global _token_optimizer
+    
+    # First check without locking for performance
+    if _token_optimizer is None:
+        with _optimizer_lock:
+            # Double-check after acquiring lock
+            if _token_optimizer is None:
+                _token_optimizer = TokenOptimizer()
+    
+    return _token_optimizer

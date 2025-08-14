@@ -334,7 +334,7 @@ class BackgroundTaskManager:
 # Global task manager
 task_manager = None
 
-def initialize_tasks(backend: str = 'celery'):
+def initialize_tasks(backend: str = 'celery') -> BackgroundTaskManager:
     global task_manager
     task_manager = BackgroundTaskManager(backend)
     return task_manager

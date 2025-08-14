@@ -2,6 +2,7 @@
 Event system for progress tracking and extensibility
 """
 import logging
+import threading
 from enum import Enum
 from typing import Any, Callable, Dict, List
 
@@ -48,49 +49,60 @@ class Event:
         return f"Event({self.type.value}, {self.data})"
 
 class EventManager:
-    """Manages event subscriptions and dispatching"""
+    """Thread-safe event manager for subscriptions and dispatching"""
 
     def __init__(self):
         self._listeners: Dict[EventType, List[Callable]] = {}
         self._global_listeners: List[Callable] = []
+        self._lock = threading.RLock()  # RLock for nested locking safety
         self.logger = logging.getLogger(__name__)
 
     def subscribe(self, event_type: EventType, callback: Callable):
-        """Subscribe to a specific event type"""
-        if event_type not in self._listeners:
-            self._listeners[event_type] = []
-        self._listeners[event_type].append(callback)
-        self.logger.debug(f"Subscribed {callback.__name__} to {event_type.value}")
+        """Subscribe to a specific event type with thread safety"""
+        with self._lock:
+            if event_type not in self._listeners:
+                self._listeners[event_type] = []
+            self._listeners[event_type].append(callback)
+            self.logger.debug(f"Subscribed {callback.__name__} to {event_type.value}")
 
     def subscribe_all(self, callback: Callable):
-        """Subscribe to all events"""
-        self._global_listeners.append(callback)
-        self.logger.debug(f"Subscribed {callback.__name__} to all events")
+        """Subscribe to all events with thread safety"""
+        with self._lock:
+            self._global_listeners.append(callback)
+            self.logger.debug(f"Subscribed {callback.__name__} to all events")
 
     def unsubscribe(self, event_type: EventType, callback: Callable):
-        """Unsubscribe from a specific event type"""
-        if event_type in self._listeners:
-            self._listeners[event_type].remove(callback)
-            self.logger.debug(f"Unsubscribed {callback.__name__} from {event_type.value}")
+        """Unsubscribe from a specific event type with thread safety"""
+        with self._lock:
+            if event_type in self._listeners and callback in self._listeners[event_type]:
+                self._listeners[event_type].remove(callback)
+                msg = f"Unsubscribed {callback.__name__} from {event_type.value}"
+                self.logger.debug(msg)
 
     def emit(self, event: Event):
-        """Emit an event to all subscribers"""
+        """Emit an event to all subscribers with thread safety"""
         self.logger.debug(f"Emitting event: {event}")
 
-        # Notify specific listeners
-        if event.type in self._listeners:
-            for callback in self._listeners[event.type]:
-                try:
-                    callback(event)
-                except Exception as e:
-                    self.logger.error(f"Error in event callback {callback.__name__}: {e}")
+        # Create a copy of listeners to avoid modification during iteration
+        with self._lock:
+            specific_listeners = self._listeners.get(event.type, []).copy()
+            global_listeners = self._global_listeners.copy()
 
-        # Notify global listeners
-        for callback in self._global_listeners:
+        # Notify specific listeners (outside lock to prevent deadlock)
+        for callback in specific_listeners:
             try:
                 callback(event)
             except Exception as e:
-                self.logger.error(f"Error in global callback {callback.__name__}: {e}")
+                error_msg = f"Error in event callback {callback.__name__}: {e}"
+                self.logger.error(error_msg)
+
+        # Notify global listeners
+        for callback in global_listeners:
+            try:
+                callback(event)
+            except Exception as e:
+                error_msg = f"Error in global callback {callback.__name__}: {e}"
+                self.logger.error(error_msg)
 
 # Global event manager instance
 event_manager = EventManager()
@@ -128,8 +140,13 @@ class ProgressTracker:
 
         elif event.type == EventType.CHAPTER_COMPLETED:
             self.completed_chapters += 1
-            percentage = (self.completed_chapters / self.total_chapters * 100) if self.total_chapters > 0 else 0
-            logging.info(f"Progress: {self.completed_chapters}/{self.total_chapters} chapters ({percentage:.1f}%)")
+            if self.total_chapters > 0:
+                percentage = (self.completed_chapters / self.total_chapters * 100)
+            else:
+                percentage = 0
+            progress_msg = (f"Progress: {self.completed_chapters}/{self.total_chapters} "
+                          f"chapters ({percentage:.1f}%)")
+            logging.info(progress_msg)
 
         elif event.type == EventType.SECTION_STARTED:
             self.current_section = event.data.get('section_number')
@@ -144,5 +161,6 @@ class ProgressTracker:
             'sections': {'completed': self.completed_sections, 'total': self.total_sections},
             'current_chapter': self.current_chapter,
             'current_section': self.current_section,
-            'percentage': (self.completed_chapters / self.total_chapters * 100) if self.total_chapters > 0 else 0
+            'percentage': ((self.completed_chapters / self.total_chapters * 100)
+                          if self.total_chapters > 0 else 0)
         }

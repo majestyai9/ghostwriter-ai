@@ -188,12 +188,13 @@ class MemoryCache(CacheBackend):
                 if entry['expire'] and entry['expire'] < time.time()
             )
             
+            usage_pct = (total_entries / self.max_size * 100) if self.max_size > 0 else 0
             return {
                 'total_entries': total_entries,
                 'expired_entries': expired_count,
                 'active_entries': total_entries - expired_count,
                 'max_size': self.max_size,
-                'usage_percent': (total_entries / self.max_size * 100) if self.max_size > 0 else 0
+                'usage_percent': usage_pct
             }
 
 class RedisCache(CacheBackend):
@@ -476,18 +477,26 @@ def cached(expire: int = 3600, key_prefix: str = None):
         return wrapper
     return decorator
 
-# Global cache instance
-cache_manager = None
+# Global cache instance with thread safety
+_cache_manager = None
+_cache_lock = threading.Lock()
 
 def initialize_cache(backend: str = 'memory', **kwargs):
-    """Initialize global cache manager"""
-    global cache_manager
-    cache_manager = CacheManager(backend, **kwargs)
-    return cache_manager
+    """Initialize global cache manager with thread safety"""
+    global _cache_manager
+    with _cache_lock:
+        _cache_manager = CacheManager(backend, **kwargs)
+    return _cache_manager
 
 def get_cache() -> CacheManager:
-    """Get global cache manager"""
-    global cache_manager
-    if cache_manager is None:
-        cache_manager = CacheManager()
-    return cache_manager
+    """Get global cache manager with double-checked locking for thread safety"""
+    global _cache_manager
+    
+    # First check without locking for performance
+    if _cache_manager is None:
+        with _cache_lock:
+            # Double-check after acquiring lock
+            if _cache_manager is None:
+                _cache_manager = CacheManager()
+    
+    return _cache_manager
