@@ -217,6 +217,11 @@ docs/_build/
 site/
 _build/
 
+# TODO and temporary documentation
+TODO.md
+FIXES_IMPLEMENTED.md
+primer.md
+
 # Profiling
 *.prof
 *.lprof
