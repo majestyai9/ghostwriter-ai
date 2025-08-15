@@ -1,0 +1,359 @@
+# Enhanced prompt templates with styles and languages
+# Each template supports multiple styles and can be localized
+
+title:
+  template: |
+    Generate a creative and engaging title for a book based on the following initial idea:
+    "{original_title}"
+    
+    The title should be:
+    - Catchy and memorable
+    - Reflective of the book's content
+    - Appropriate for the target audience
+    
+    Return ONLY the title, without quotes or additional text.
+  description: "Generate book title from initial idea"
+  version: "2.0.0"
+  variables:
+    - original_title
+  metadata:
+    category: generation
+    complexity: low
+
+title_creative:
+  template: |
+    Imagine you're a bestselling author known for unforgettable titles.
+    Transform this concept into something extraordinary:
+    "{original_title}"
+    
+    Think:
+    - Metaphors and wordplay
+    - Emotional resonance
+    - Unique perspective
+    - Market appeal
+    
+    Create a title that would make someone stop and pick up the book.
+    Return ONLY the title.
+  description: "Generate creative book title"
+  style: creative
+  version: "2.0.0"
+  variables:
+    - original_title
+
+title_academic:
+  template: |
+    Create a scholarly title for an academic work based on:
+    "{original_title}"
+    
+    The title should:
+    - Be precise and descriptive
+    - Include relevant field terminology
+    - Follow academic conventions
+    - Indicate the scope of research
+    
+    Format: [Main Title]: [Explanatory Subtitle]
+    Return ONLY the title.
+  description: "Generate academic book title"
+  style: academic
+  version: "2.0.0"
+  variables:
+    - original_title
+
+table_of_contents:
+  template: |
+    Create a detailed table of contents for a book with the following instructions:
+    {instructions}
+    
+    Requirements:
+    - {chapter_count} chapters total
+    - {sections_per_chapter} sections per chapter
+    - Logical progression of topics
+    - Engaging chapter and section titles
+    - Balanced content distribution
+    
+    Return the result as a JSON object with this structure:
+    ```json
+    {{
+      "chapters": [
+        {{
+          "number": 1,
+          "title": "Chapter Title",
+          "sections": [
+            {{
+              "number": 1,
+              "title": "Section Title"
+            }}
+          ]
+        }}
+      ]
+    }}
+    ```
+  description: "Generate structured table of contents"
+  version: "2.0.0"
+  variables:
+    - instructions
+    - chapter_count
+    - sections_per_chapter
+  metadata:
+    default_chapter_count: 15
+    default_sections_per_chapter: 4
+
+summary:
+  template: |
+    Write a compelling summary for the book titled "{title}".
+    
+    Book generation instructions:
+    {instructions}
+    
+    The summary should:
+    - Be {word_count} words
+    - Capture the essence of the book
+    - Engage potential readers
+    - Highlight key themes and topics
+    - Use {tone} tone
+    
+    Write the summary in an engaging, professional style.
+  description: "Generate book summary"
+  version: "2.0.0"
+  variables:
+    - title
+    - instructions
+    - word_count
+    - tone
+  metadata:
+    default_word_count: "200-250"
+    default_tone: "professional"
+
+chapter_topics:
+  template: |
+    For the book "{title}", generate key topics for:
+    Chapter {chapter_number}: {chapter_title}
+    
+    Book summary: {summary}
+    
+    Context from table of contents:
+    {toc_context}
+    
+    Previous chapters covered: {previous_chapters}
+    Upcoming chapters will cover: {upcoming_chapters}
+    
+    Generate {topic_count} key topics that:
+    - Build on previous content
+    - Set up future chapters
+    - Thoroughly explore the chapter theme
+    - Provide practical value
+    
+    Format as a detailed, comma-separated list.
+  description: "Generate contextual chapter topics"
+  version: "2.0.0"
+  variables:
+    - title
+    - summary
+    - chapter_number
+    - chapter_title
+    - toc_context
+    - previous_chapters
+    - upcoming_chapters
+    - topic_count
+  metadata:
+    default_topic_count: 7
+
+chapter:
+  template: |
+    Write the full content for:
+    Chapter {chapter_number}: {chapter_title}
+    
+    Book: "{title}"
+    Summary: {summary}
+    
+    Topics to cover: {topics}
+    
+    Writing style: {style}
+    Target audience: {audience}
+    Chapter length: {word_count} words
+    
+    Previous chapter summary: {previous_summary}
+    
+    Table of contents context:
+    {toc_context}
+    
+    Write comprehensive, engaging content that:
+    - Thoroughly explores each topic
+    - Maintains consistency with the book's theme
+    - Provides {content_type} content
+    - Uses clear, accessible language
+    - Includes {examples_count} practical examples
+    - Smoothly transitions from the previous chapter
+  description: "Generate full chapter content"
+  version: "2.0.0"
+  variables:
+    - title
+    - summary
+    - chapter_number
+    - chapter_title
+    - topics
+    - style
+    - audience
+    - word_count
+    - previous_summary
+    - toc_context
+    - content_type
+    - examples_count
+  metadata:
+    default_style: "engaging"
+    default_audience: "general"
+    default_word_count: "2500-3000"
+    default_content_type: "informative and practical"
+    default_examples_count: "2-3"
+
+section_topics:
+  template: |
+    For Chapter {chapter_number}: {chapter_title}
+    Generate specific topics for Section {section_number}: {section_title}
+    
+    Chapter topics: {chapter_topics}
+    Section focus: {section_focus}
+    
+    Previous sections covered: {previous_sections}
+    
+    Context:
+    {toc_context}
+    
+    Generate {topic_count} specific topics that:
+    - Deep dive into the section theme
+    - Connect to chapter objectives
+    - Avoid repetition with previous sections
+    - Provide actionable insights
+    
+    Format as a detailed, comma-separated list.
+  description: "Generate focused section topics"
+  version: "2.0.0"
+  variables:
+    - chapter_number
+    - chapter_title
+    - section_number
+    - section_title
+    - chapter_topics
+    - section_focus
+    - previous_sections
+    - toc_context
+    - topic_count
+  metadata:
+    default_topic_count: 5
+
+section:
+  template: |
+    Write the content for:
+    Section {chapter_number}.{section_number}: {section_title}
+    
+    Part of Chapter {chapter_number}: {chapter_title}
+    Book: "{title}"
+    
+    Section topics: {topics}
+    Chapter topics: {chapter_topics}
+    
+    Writing style: {style}
+    Section length: {word_count} words
+    
+    Previous section summary: {previous_section_summary}
+    
+    Write detailed content that:
+    - Focuses on the specific section topics
+    - Connects to the broader chapter themes
+    - Provides {example_type} examples
+    - Includes {callout_count} key takeaways or tips
+    - Maintains flow from the previous section
+  description: "Generate section content"
+  version: "2.0.0"
+  variables:
+    - chapter_number
+    - section_number
+    - section_title
+    - chapter_title
+    - title
+    - topics
+    - chapter_topics
+    - style
+    - word_count
+    - previous_section_summary
+    - example_type
+    - callout_count
+  metadata:
+    default_style: "clear and detailed"
+    default_word_count: "1000-1200"
+    default_example_type: "practical"
+    default_callout_count: "2-3"
+
+review:
+  template: |
+    Review and improve the following content:
+    
+    {content}
+    
+    Review criteria:
+    - Clarity and readability
+    - Factual accuracy
+    - Engagement level
+    - Structure and flow
+    - Grammar and style
+    
+    Focus areas: {focus_areas}
+    Target improvements: {improvement_goals}
+    
+    Provide the improved version while maintaining the original voice and intent.
+  description: "Review and improve content"
+  version: "1.0.0"
+  variables:
+    - content
+    - focus_areas
+    - improvement_goals
+
+edit:
+  template: |
+    Edit the following content according to these instructions:
+    
+    Content:
+    {content}
+    
+    Editing instructions:
+    {instructions}
+    
+    Style guide: {style_guide}
+    Word count target: {target_word_count}
+    
+    Return the edited content.
+  description: "Edit content with specific instructions"
+  version: "1.0.0"
+  variables:
+    - content
+    - instructions
+    - style_guide
+    - target_word_count
+
+expand:
+  template: |
+    Expand the following content with more detail:
+    
+    Original content:
+    {content}
+    
+    Expansion focus: {focus}
+    Additional topics to include: {additional_topics}
+    Target length increase: {expansion_factor}x
+    
+    Maintain the original style while adding:
+    - More detailed explanations
+    - Additional examples
+    - Supporting evidence
+    - Practical applications
+    
+    Return the expanded content.
+  description: "Expand content with additional detail"
+  version: "1.0.0"
+  variables:
+    - content
+    - focus
+    - additional_topics
+    - expansion_factor
+  metadata:
+    default_expansion_factor: 2

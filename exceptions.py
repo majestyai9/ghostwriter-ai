@@ -46,3 +46,7 @@ class FileOperationError(GhostwriterException):
 class ValidationError(GhostwriterException):
     """Raised when input validation fails"""
     pass
+
+class PromptServiceError(GhostwriterException):
+    """Raised when prompt service operations fail"""
+    pass
