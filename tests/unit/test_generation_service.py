@@ -1,8 +1,9 @@
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
-from services.generation_service import GenerationService
 from providers.base import LLMResponse
+from services.generation_service import GenerationService
+
 
 class TestGenerationService(unittest.TestCase):
 

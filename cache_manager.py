@@ -58,7 +58,7 @@ class MemoryCache(CacheBackend):
         self.logger = logging.getLogger(__name__)
         self.lock = threading.RLock()  # RLock for nested locking safety
         self.last_cleanup = time.time()
-        
+
         # Start background cleanup thread
         self._start_cleanup_thread()
 
@@ -68,7 +68,7 @@ class MemoryCache(CacheBackend):
             while True:
                 time.sleep(self.cleanup_interval)
                 self._cleanup_expired()
-        
+
         cleanup_thread = threading.Thread(target=cleanup_worker, daemon=True)
         cleanup_thread.start()
 
@@ -77,18 +77,18 @@ class MemoryCache(CacheBackend):
         with self.lock:
             current_time = time.time()
             expired_keys = []
-            
+
             for key, entry in self.cache.items():
                 if entry['expire'] and entry['expire'] < current_time:
                     expired_keys.append(key)
-            
+
             for key in expired_keys:
                 del self.cache[key]
                 self.logger.debug(f"Cleaned up expired cache entry: {key}")
-            
+
             if expired_keys:
                 self.logger.info(f"Cleaned up {len(expired_keys)} expired cache entries")
-            
+
             self.last_cleanup = current_time
 
     def _maybe_cleanup(self):
@@ -110,16 +110,16 @@ class MemoryCache(CacheBackend):
         with self.lock:
             if key in self.cache:
                 entry = self.cache[key]
-                
+
                 # Check expiration
                 if entry['expire'] and entry['expire'] < time.time():
                     del self.cache[key]
                     return None
-                
+
                 # Move to end (most recently used) for LRU
                 self.cache.move_to_end(key)
                 entry['last_accessed'] = time.time()
-                
+
                 return entry['value']
             return None
 
@@ -134,14 +134,14 @@ class MemoryCache(CacheBackend):
         """
         with self.lock:
             current_time = time.time()
-            
+
             # Check if we need to evict (only if adding new key)
             if key not in self.cache and len(self.cache) >= self.max_size:
                 # Remove least recently used (first item in OrderedDict)
                 lru_key = next(iter(self.cache))
                 del self.cache[lru_key]
                 self.logger.debug(f"Evicted LRU cache entry: {lru_key}")
-            
+
             # Add or update entry
             self.cache[key] = {
                 'value': value,
@@ -149,10 +149,10 @@ class MemoryCache(CacheBackend):
                 'created': current_time,
                 'last_accessed': current_time
             }
-            
+
             # Move to end (most recently used)
             self.cache.move_to_end(key)
-            
+
             # Periodic cleanup check
             self._maybe_cleanup()
 
@@ -178,7 +178,7 @@ class MemoryCache(CacheBackend):
         with self.lock:
             self.cache.clear()
             self.logger.info("Cache cleared")
-    
+
     def get_stats(self) -> Dict[str, Any]:
         """Get cache statistics including memory usage"""
         with self.lock:
@@ -187,7 +187,7 @@ class MemoryCache(CacheBackend):
                 1 for entry in self.cache.values()
                 if entry['expire'] and entry['expire'] < time.time()
             )
-            
+
             usage_pct = (total_entries / self.max_size * 100) if self.max_size > 0 else 0
             return {
                 'total_entries': total_entries,
@@ -491,12 +491,12 @@ def initialize_cache(backend: str = 'memory', **kwargs):
 def get_cache() -> CacheManager:
     """Get global cache manager with double-checked locking for thread safety"""
     global _cache_manager
-    
+
     # First check without locking for performance
     if _cache_manager is None:
         with _cache_lock:
             # Double-check after acquiring lock
             if _cache_manager is None:
                 _cache_manager = CacheManager()
-    
+
     return _cache_manager

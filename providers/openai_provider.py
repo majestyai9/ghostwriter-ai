@@ -1,8 +1,8 @@
 """
 OpenAI Provider Implementation
 """
-import time
-from typing import Any, Dict, List, Generator
+from collections.abc import Generator
+from typing import Any, Dict, List
 
 import openai
 import tiktoken
@@ -10,10 +10,10 @@ import tiktoken
 from events import Event, EventType, event_manager
 from exceptions import (
     ProviderAuthError,
-    ProviderRateLimitError,
     ProviderContentFilterError,
-    TokenLimitError,
     ProviderError,
+    ProviderRateLimitError,
+    TokenLimitError,
 )
 
 from .base import LLMProvider, LLMResponse

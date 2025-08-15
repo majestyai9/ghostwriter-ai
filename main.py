@@ -8,7 +8,7 @@ import shutil
 import tempfile
 import traceback
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
 
 import slugify
 
@@ -66,7 +66,7 @@ def save_book_atomically(book: Dict[str, Any], book_json_path: str) -> None:
     """
     # Create temp file in same directory for atomic rename
     dir_path = os.path.dirname(book_json_path)
-    with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8', 
+    with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8',
                                      dir=dir_path, suffix='.tmp',
                                      delete=False) as tmp_file:
         try:
@@ -77,7 +77,7 @@ def save_book_atomically(book: Dict[str, Any], book_json_path: str) -> None:
         except Exception as e:
             os.unlink(tmp_file.name)
             raise FileOperationError(f"Failed to write temp file: {e}")
-    
+
     # Atomic rename
     try:
         if os.name == 'nt':  # Windows
@@ -94,7 +94,7 @@ def save_book_atomically(book: Dict[str, Any], book_json_path: str) -> None:
         raise FileOperationError(f"Failed to save book atomically: {e}")
 
 
-def create_checkpoint(book: Dict[str, Any], book_base_dir: str, 
+def create_checkpoint(book: Dict[str, Any], book_base_dir: str,
                       checkpoint_name: str) -> None:
     """
     Create a checkpoint of the current book state.
@@ -106,7 +106,7 @@ def create_checkpoint(book: Dict[str, Any], book_base_dir: str,
     """
     checkpoint_dir = os.path.join(book_base_dir, '.checkpoints')
     os.makedirs(checkpoint_dir, exist_ok=True)
-    
+
     checkpoint_path = os.path.join(checkpoint_dir, f"{checkpoint_name}.json")
     save_book_atomically(book, checkpoint_path)
     logging.info(f"Checkpoint created: {checkpoint_name}")
@@ -125,14 +125,14 @@ def restore_from_checkpoint(book_base_dir: str) -> Optional[Dict[str, Any]]:
     checkpoint_dir = os.path.join(book_base_dir, '.checkpoints')
     if not os.path.exists(checkpoint_dir):
         return None
-    
+
     # Find latest checkpoint
-    checkpoints = sorted(Path(checkpoint_dir).glob('*.json'), 
+    checkpoints = sorted(Path(checkpoint_dir).glob('*.json'),
                         key=lambda p: p.stat().st_mtime, reverse=True)
-    
+
     if not checkpoints:
         return None
-    
+
     latest_checkpoint = checkpoints[0]
     try:
         with open(latest_checkpoint, encoding='utf-8') as f:
@@ -144,7 +144,7 @@ def restore_from_checkpoint(book_base_dir: str) -> Optional[Dict[str, Any]]:
         return None
 
 
-def generate_book(generation_service: GenerationService, book_base_dir: str, 
+def generate_book(generation_service: GenerationService, book_base_dir: str,
                  title: str, instructions: str, language: str) -> Dict[str, Any]:
     """
     Load or generate book with enhanced error handling and checkpointing.
@@ -161,7 +161,7 @@ def generate_book(generation_service: GenerationService, book_base_dir: str,
     """
     book_json_path = f'{book_base_dir}/book.json'
     book = {}
-    
+
     # Try to load existing book
     if os.path.exists(book_json_path):
         try:
@@ -212,27 +212,27 @@ def generate_book(generation_service: GenerationService, book_base_dir: str,
             chapter_num = i + 1
             max_retries = 3
             retry_count = 0
-            
+
             while retry_count < max_retries:
                 try:
                     logging.info(f"Generating chapter {chapter_num}/{total_chapters}: "
                                f"{chapter.get('title', 'Untitled')}")
-                    
+
                     chapter['content'] = generation_service.generate_book_chapter(
-                        settings.LLM_PROVIDER, 
-                        book, 
+                        settings.LLM_PROVIDER,
+                        book,
                         i,
                         book_dir=book_base_dir  # Pass book directory for RAG
                     )
-                    
+
                     # Save after each successful chapter
                     save_book_atomically(book, book_json_path)
-                    
+
                     # Create checkpoint every 3 chapters or at the end
                     if (i + 1) % 3 == 0 or i == total_chapters - 1:
                         checkpoint_name = f"chapter_{i+1}_of_{total_chapters}"
                         create_checkpoint(book, book_base_dir, checkpoint_name)
-                    
+
                     # Emit progress event
                     event_manager.emit(Event(EventType.CHAPTER_COMPLETED, {
                         'chapter_number': chapter_num,
@@ -240,19 +240,19 @@ def generate_book(generation_service: GenerationService, book_base_dir: str,
                         'total_chapters': total_chapters
                     }))
                     break  # Success, exit retry loop
-                    
+
                 except Exception as e:
                     retry_count += 1
                     logging.error(f"Failed to generate chapter {chapter_num} "
                                 f"(attempt {retry_count}/{max_retries}): {e}")
-                    
+
                     if retry_count >= max_retries:
                         # Save partial book before failing
                         logging.error(f"Max retries reached for chapter {chapter_num}")
                         chapter['content'] = f"[ERROR: Failed to generate this chapter: {e}]"
                         save_book_atomically(book, book_json_path)
                         create_checkpoint(book, book_base_dir, f"partial_chapter_{i}")
-                        
+
                         # Ask user if they want to continue
                         response = input(f"Chapter {chapter_num} failed. "
                                        f"Continue with next chapter? (y/n): ")
@@ -283,7 +283,7 @@ def main() -> int:
     logging.info(">> Book Writer AI (Enhanced Edition with Error Recovery)")
 
     setup_event_handlers()
-    
+
     # Add progress tracker
     progress_tracker = ProgressTracker()
     event_manager.subscribe_all(progress_tracker.track_progress)
@@ -312,14 +312,14 @@ def main() -> int:
         # Initialize services with error handling
         try:
             provider_factory = ProviderFactory()
-            api_key = (settings.OPENAI_API_KEY if settings.LLM_PROVIDER == "openai" 
+            api_key = (settings.OPENAI_API_KEY if settings.LLM_PROVIDER == "openai"
                       else settings.ANTHROPIC_API_KEY)
             provider = provider_factory.create_provider(
-                settings.LLM_PROVIDER, 
+                settings.LLM_PROVIDER,
                 {"api_key": api_key}
             )
             cache_manager = CacheManager(
-                backend=settings.CACHE_TYPE, 
+                backend=settings.CACHE_TYPE,
                 expire=settings.CACHE_TTL_SECONDS
             )
             token_optimizer = TokenOptimizer(provider=provider)
@@ -333,7 +333,7 @@ def main() -> int:
 
         # Generate book with comprehensive error handling
         book = generate_book(
-            generation_service, book_base_dir, 
+            generation_service, book_base_dir,
             original_title, instructions, language
         )
 
@@ -345,12 +345,12 @@ def main() -> int:
                 'format': 'markdown'
             }))
             logging.info(f"✓ Book successfully generated at: {book_base_dir}")
-            
+
             # Show final statistics
             stats = progress_tracker.get_progress()
             logging.info(f"Final statistics: {stats['chapters']['completed']}/"
                         f"{stats['chapters']['total']} chapters completed")
-            
+
         except Exception as e:
             logging.error(f"Failed to export book: {e}")
             logging.info("Book data has been saved and can be exported manually")

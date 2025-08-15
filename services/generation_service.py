@@ -3,8 +3,8 @@ Unified service for orchestrating AI content generation.
 """
 
 import logging
-from pathlib import Path
-from typing import Any, Dict, Generator, List, Optional
+from collections.abc import Generator
+from typing import Any, Dict, Optional
 
 from app_config import settings
 from cache_manager import CacheManager
@@ -16,12 +16,7 @@ from token_optimizer import BookContextManager, TokenOptimizer
 
 # Try to import RAG-enhanced optimizer
 try:
-    from token_optimizer_rag import (
-        HybridContextManager,
-        RAGConfig,
-        RAGMode,
-        create_hybrid_manager
-    )
+    from token_optimizer_rag import HybridContextManager, RAGConfig, RAGMode, create_hybrid_manager
     RAG_AVAILABLE = True
 except ImportError:
     RAG_AVAILABLE = False
@@ -43,7 +38,7 @@ class GenerationService:
         self._cache_manager = cache_manager
         self._token_optimizer = token_optimizer
         self.logger = logging.getLogger(__name__)
-        
+
         # Initialize context manager based on RAG availability and settings
         self._hybrid_context_manager = None
         if enable_rag and RAG_AVAILABLE and settings.ENABLE_RAG:
@@ -60,10 +55,10 @@ class GenerationService:
                         rag_context_ratio=settings.RAG_RETRIEVED_CONTEXT_RATIO,
                         summary_context_ratio=settings.RAG_SUMMARY_CONTEXT_RATIO,
                     )
-                
+
                 # Get a provider for summarization
                 provider = self._get_provider(settings.LLM_PROVIDER)
-                
+
                 # Create hybrid context manager
                 self._hybrid_context_manager = create_hybrid_manager(
                     provider=provider,
@@ -74,7 +69,7 @@ class GenerationService:
             except Exception as e:
                 self.logger.warning(f"Failed to initialize RAG context manager: {e}, falling back to legacy")
                 self._hybrid_context_manager = None
-        
+
         # Fallback to legacy context manager
         if self._hybrid_context_manager is None:
             self._book_context_manager = BookContextManager()
@@ -115,7 +110,7 @@ class GenerationService:
 
         optimized_prompt = self._token_optimizer.optimize_messages([{"role": "user", "content": prompt}], 4096)
         provider = self._get_provider(provider_name)
-        
+
         result = provider.generate(optimized_prompt[0]["content"], **provider_kwargs)
 
         if use_cache:
@@ -135,7 +130,7 @@ class GenerationService:
         """
         optimized_prompt = self._token_optimizer.optimize_messages([{"role": "user", "content": prompt}], 4096)
         provider = self._get_provider(provider_name)
-        
+
         yield from provider.generate_stream(optimized_prompt[0]["content"], **provider_kwargs)
 
     def generate_book_chapter(
@@ -167,7 +162,7 @@ class GenerationService:
             if 0 <= chapter_number < len(chapters):
                 chapter = chapters[chapter_number]
                 query = f"{chapter.get('title', '')} {chapter.get('topics', '')}"
-            
+
             context = self._hybrid_context_manager.prepare_context(
                 book=book,
                 current_chapter=chapter_number,
@@ -178,11 +173,11 @@ class GenerationService:
         else:
             # Fallback to legacy context manager
             context = self._book_context_manager.prepare_context(
-                book, 
+                book,
                 current_chapter=chapter_number
             )
             self.logger.debug(f"Using legacy context with {len(context)} messages")
-        
+
         provider = self._get_provider(provider_name)
 
         # The prompt is now the conversation history

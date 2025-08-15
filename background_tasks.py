@@ -8,7 +8,6 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Callable, Dict, Optional
 
-from app_config import settings
 from cache_manager import CacheManager
 from providers.factory import ProviderFactory
 from services.generation_service import GenerationService

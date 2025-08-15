@@ -4,7 +4,7 @@ Dependency injection container for the application with thread safety
 This version works with or without dependency-injector library installed.
 """
 import threading
-from typing import Any, Dict, Optional, Callable
+from typing import Any, Callable, Dict, Optional
 
 # Try to import dependency_injector, fall back to custom implementation if not available
 try:
@@ -70,7 +70,7 @@ class ThreadSafeSingleton:
     """
     _instances: Dict[type, Any] = {}
     _lock = threading.RLock()
-    
+
     @classmethod
     def get_instance(cls, factory_func: Callable, *args, **kwargs):
         """
@@ -90,9 +90,9 @@ class ThreadSafeSingleton:
                 # Double-check pattern after acquiring lock
                 if factory_func not in cls._instances:
                     cls._instances[factory_func] = factory_func(*args, **kwargs)
-        
+
         return cls._instances[factory_func]
-    
+
     @classmethod
     def clear(cls):
         """Clear all singleton instances (useful for testing)"""
@@ -107,13 +107,13 @@ class SimpleContainer:
     
     Provides thread-safe singleton and factory patterns for dependency management.
     """
-    
+
     def __init__(self):
         self._lock = threading.RLock()
         self._services = {}
         self._factories = {}
         self._config = self._load_config()
-    
+
     def _load_config(self) -> Dict[str, Any]:
         """Load configuration from app_config"""
         return {
@@ -132,28 +132,28 @@ class SimpleContainer:
             'project_dir': './projects/current',
             'token_cache_size': 2048,
         }
-    
+
     def get_config(self, key: str, default: Any = None) -> Any:
         """Get configuration value"""
         return self._config.get(key, default)
-    
+
     def update_config(self, config: Dict[str, Any]):
         """Update configuration"""
         with self._lock:
             self._config.update(config)
-    
+
     def get_llm_provider(self):
         """Get or create LLM provider singleton"""
         return ThreadSafeSingleton.get_instance(
             self._create_llm_provider
         )
-    
+
     def _create_llm_provider(self):
         """Create LLM provider instance"""
         if ProviderFactory is None:
             # Return a dummy provider if ProviderFactory is not available
             return None
-        
+
         provider_config = {
             'provider': self._config.get('provider_name', 'openai'),
             'api_key': self._config.get('openai_api_key'),
@@ -161,7 +161,7 @@ class SimpleContainer:
             'temperature': 0.7,
             'max_tokens': 4096
         }
-        
+
         try:
             return ProviderFactory.create_provider(
                 self._config.get('provider_name', 'openai'),
@@ -170,11 +170,11 @@ class SimpleContainer:
         except Exception:
             # Return None if provider creation fails
             return None
-    
+
     def get_event_manager(self):
         """Get event manager singleton"""
         return ThreadSafeSingleton.get_instance(lambda: event_manager)
-    
+
     def get_project_manager(self):
         """Get or create project manager singleton"""
         if ProjectManager is None:
@@ -183,7 +183,7 @@ class SimpleContainer:
             ProjectManager,
             base_dir=self._config.get('base_dir', './projects')
         )
-    
+
     def create_cache_manager(self):
         """Create a new cache manager instance"""
         if CacheManager is None:
@@ -193,7 +193,7 @@ class SimpleContainer:
             max_size=self._config.get('cache_max_size', 1000),
             cleanup_interval=self._config.get('cache_cleanup_interval', 300)
         )
-    
+
     def create_background_task_manager(self):
         """Create a new background task manager instance"""
         if BackgroundTaskManager is None:
@@ -201,7 +201,7 @@ class SimpleContainer:
         return BackgroundTaskManager(
             backend=self._config.get('task_backend', 'thread')
         )
-    
+
     def create_book_exporter(self):
         """Create a new book exporter instance"""
         if BookExporter is None:
@@ -209,13 +209,13 @@ class SimpleContainer:
         return BookExporter(
             output_dir=self._config.get('output_dir', './output')
         )
-    
+
     def get_style_manager(self):
         """Get or create style manager singleton"""
         if StyleManager is None:
             return None
         return ThreadSafeSingleton.get_instance(StyleManager)
-    
+
     def create_character_manager(self):
         """Create a new character manager instance"""
         if CharacterManager is None:
@@ -223,7 +223,7 @@ class SimpleContainer:
         return CharacterManager(
             project_dir=self._config.get('project_dir', './projects/current')
         )
-    
+
     def create_token_optimizer(self):
         """Create a new token optimizer instance"""
         if TokenOptimizer is None:
@@ -233,7 +233,7 @@ class SimpleContainer:
             provider=provider,
             cache_size=self._config.get('token_cache_size', 2048)
         )
-    
+
     def reset(self):
         """Reset all singletons and clear cache"""
         ThreadSafeSingleton.clear()
@@ -253,10 +253,10 @@ if DEPENDENCY_INJECTOR_AVAILABLE:
         - Configuration from app_config module
         - Lazy initialization for performance
         """
-        
+
         # Configuration provider
         config_provider = providers.Configuration()
-        
+
         # Initialize config from app_config module
         config_provider.from_dict({
             'openai_api_key': getattr(app_config.settings, 'OPENAI_API_KEY', None),
@@ -267,25 +267,25 @@ if DEPENDENCY_INJECTOR_AVAILABLE:
             'base_dir': getattr(app_config.settings, 'BASE_DIR', '.'),
             'enable_progress_tracking': getattr(app_config.settings, 'ENABLE_PROGRESS_TRACKING', False),
         })
-        
+
         # Thread-safe LLM Provider using ProviderFactory
         llm_provider = providers.ThreadSafeSingleton(
             ProviderFactory.create_provider,
             provider_name=config_provider.provider_name,
             config=config_provider.provider_config
         )
-        
+
         # Thread-safe Event Manager
         event_manager_service = providers.ThreadSafeSingleton(
             lambda: event_manager
         )
-        
+
         # Thread-safe Project Manager
         project_manager = providers.ThreadSafeSingleton(
             ProjectManager,
             base_dir=config_provider.base_dir
         )
-        
+
         # Cache Manager (Factory pattern for multiple instances if needed)
         cache_manager = providers.Factory(
             CacheManager,
@@ -293,30 +293,30 @@ if DEPENDENCY_INJECTOR_AVAILABLE:
             max_size=providers.Configuration().cache_max_size,
             cleanup_interval=providers.Configuration().cache_cleanup_interval
         )
-        
+
         # Background Task Manager (Factory for flexibility)
         background_task_manager = providers.Factory(
             BackgroundTaskManager,
             backend=providers.Configuration().task_backend
         )
-        
+
         # Book Exporter (Factory pattern)
         book_exporter = providers.Factory(
             BookExporter,
             output_dir=providers.Configuration().output_dir
         )
-        
+
         # Thread-safe Style Manager
         style_manager = providers.ThreadSafeSingleton(
             StyleManager
         )
-        
+
         # Character Manager (Factory for project-specific instances)
         character_manager = providers.Factory(
             CharacterManager,
             project_dir=providers.Configuration().project_dir
         )
-        
+
         # Token Optimizer with provider integration
         token_optimizer = providers.Factory(
             TokenOptimizer,
@@ -341,14 +341,14 @@ def get_container() -> Container:
         Container: The global dependency injection container
     """
     global _container
-    
+
     # First check without locking (performance optimization)
     if _container is None:
         with _container_lock:
             # Double-check after acquiring lock
             if _container is None:
                 _container = Container()
-                
+
                 if DEPENDENCY_INJECTOR_AVAILABLE:
                     # Set default configuration values for dependency-injector
                     _container.config_provider.base_dir.from_value('./projects')
@@ -359,7 +359,7 @@ def get_container() -> Container:
                     _container.config_provider.output_dir.from_value('./output')
                     _container.config_provider.project_dir.from_value('./projects/current')
                     _container.config_provider.token_cache_size.from_value(2048)
-                    
+
                     # Default provider configuration
                     _container.config_provider.provider_name.from_value('openai')
                     _container.config_provider.provider_config.from_value({
@@ -369,7 +369,7 @@ def get_container() -> Container:
                         'temperature': 0.7,
                         'max_tokens': 4096
                     })
-    
+
     return _container
 
 
@@ -386,23 +386,23 @@ def init_container(custom_config: Dict[str, Any] = None) -> Container:
         Container: Configured container instance
     """
     container = get_container()
-    
+
     if custom_config:
         with _container_lock:
             if DEPENDENCY_INJECTOR_AVAILABLE:
                 # Update configuration for dependency-injector
                 container.config_provider.update(custom_config)
-                
+
                 # Update provider config if specified
                 if 'provider_name' in custom_config:
                     container.config_provider.provider_name.from_value(custom_config['provider_name'])
-                
+
                 if 'provider_config' in custom_config:
                     container.config_provider.provider_config.from_value(custom_config['provider_config'])
             else:
                 # Update configuration for simple container
                 container.update_config(custom_config)
-    
+
     return container
 
 
@@ -413,7 +413,7 @@ def reset_container():
     Thread-safe container reset.
     """
     global _container
-    
+
     with _container_lock:
         if _container is not None:
             # Clean up resources if needed
@@ -424,5 +424,5 @@ def reset_container():
                     _container.reset()
             except:
                 pass
-            
+
             _container = None

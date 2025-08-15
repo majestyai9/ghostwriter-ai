@@ -212,6 +212,10 @@ cache/
 .parcel-cache/
 .sass-cache/
 
+# RAG vector stores
+.rag/
+**/.rag/
+
 # Documentation build
 docs/_build/
 site/
