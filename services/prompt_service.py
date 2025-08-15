@@ -20,7 +20,7 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 import yaml
 from pydantic import BaseModel, Field, ValidationError, field_validator
 
-from ..exceptions import PromptServiceError
+from exceptions import PromptServiceError
 
 
 class PromptLanguage(str, Enum):

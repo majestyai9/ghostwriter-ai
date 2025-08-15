@@ -384,7 +384,7 @@ DOMAIN_CONFIGS = {
         required_terms=["hypothesis", "methodology", "conclusion"],
         formatting_rules={
             "citations": "APA",
-            "footnotes": True
+            "footnotes": "enabled"
         },
         validation_rules=[
             "Must include citations",
