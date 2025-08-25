@@ -87,7 +87,6 @@ from providers.base import LLMProvider
 class RAGMode(Enum):
     """RAG operation modes."""
     
-    DISABLED = "disabled"  # RAG completely disabled (backward compatibility)
     BASIC = "basic"  # Basic RAG with semantic search only
     HYBRID = "hybrid"  # Full hybrid mode with summarization + RAG
     FULL = "full"  # Maximum RAG features enabled

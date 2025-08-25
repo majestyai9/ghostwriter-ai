@@ -11,16 +11,9 @@ from cache_manager import CacheManager
 from providers.base import LLMProvider
 from providers.factory import ProviderFactory
 
-# Import legacy and new token optimizers
-from token_optimizer import BookContextManager, TokenOptimizer
-
-# Try to import RAG-enhanced optimizer
-try:
-    from token_optimizer_rag import HybridContextManager, RAGConfig, RAGMode, create_hybrid_manager
-    RAG_AVAILABLE = True
-except ImportError:
-    RAG_AVAILABLE = False
-    logging.warning("RAG-enhanced optimizer not available, using legacy system")
+# Import token optimizers
+from token_optimizer import TokenOptimizer
+from token_optimizer_rag import HybridContextManager, RAGConfig, RAGMode, create_hybrid_manager
 
 class GenerationService:
     """
@@ -39,41 +32,34 @@ class GenerationService:
         self._token_optimizer = token_optimizer
         self.logger = logging.getLogger(__name__)
 
-        # Initialize context manager based on RAG availability and settings
-        self._hybrid_context_manager = None
-        if enable_rag and RAG_AVAILABLE and settings.ENABLE_RAG:
-            try:
-                # Create RAG configuration from settings
-                if rag_config is None:
-                    rag_config = RAGConfig(
-                        mode=RAGMode(settings.RAG_MODE.lower()),
-                        embedding_model=settings.RAG_EMBEDDING_MODEL,
-                        chunk_size=settings.RAG_CHUNK_SIZE,
-                        top_k=settings.RAG_TOP_K,
-                        similarity_threshold=settings.RAG_SIMILARITY_THRESHOLD,
-                        core_context_ratio=settings.RAG_CORE_CONTEXT_RATIO,
-                        rag_context_ratio=settings.RAG_RETRIEVED_CONTEXT_RATIO,
-                        summary_context_ratio=settings.RAG_SUMMARY_CONTEXT_RATIO,
-                    )
-
-                # Get a provider for summarization
-                provider = self._get_provider(settings.LLM_PROVIDER)
-
-                # Create hybrid context manager
-                self._hybrid_context_manager = create_hybrid_manager(
-                    provider=provider,
-                    cache_manager=cache_manager,
-                    config=rag_config
+        # Initialize RAG context manager
+        if enable_rag and settings.ENABLE_RAG:
+            # Create RAG configuration from settings
+            if rag_config is None:
+                rag_config = RAGConfig(
+                    mode=RAGMode(settings.RAG_MODE.lower()),
+                    embedding_model=settings.RAG_EMBEDDING_MODEL,
+                    chunk_size=settings.RAG_CHUNK_SIZE,
+                    top_k=settings.RAG_TOP_K,
+                    similarity_threshold=settings.RAG_SIMILARITY_THRESHOLD,
+                    core_context_ratio=settings.RAG_CORE_CONTEXT_RATIO,
+                    rag_context_ratio=settings.RAG_RETRIEVED_CONTEXT_RATIO,
+                    summary_context_ratio=settings.RAG_SUMMARY_CONTEXT_RATIO,
                 )
-                self.logger.info(f"RAG-enhanced context manager initialized in {rag_config.mode.value} mode")
-            except Exception as e:
-                self.logger.warning(f"Failed to initialize RAG context manager: {e}, falling back to legacy")
-                self._hybrid_context_manager = None
 
-        # Fallback to legacy context manager
-        if self._hybrid_context_manager is None:
-            self._book_context_manager = BookContextManager()
-            self.logger.info("Using legacy context manager")
+            # Get a provider for summarization
+            provider = self._get_provider(settings.LLM_PROVIDER)
+
+            # Create hybrid context manager
+            self._hybrid_context_manager = create_hybrid_manager(
+                provider=provider,
+                cache_manager=cache_manager,
+                config=rag_config
+            )
+            self.logger.info(f"RAG-enhanced context manager initialized in {rag_config.mode.value} mode")
+        else:
+            self._hybrid_context_manager = None
+            self.logger.info("RAG system disabled")
 
     def _get_provider(self, provider_name: str) -> LLMProvider:
         """Retrieves a provider instance from the factory."""
@@ -185,12 +171,12 @@ class GenerationService:
             )
             self.logger.debug(f"Using hybrid context with {len(context)} messages")
         else:
-            # Fallback to legacy context manager
-            context = self._book_context_manager.prepare_context(
-                book,
-                current_chapter=chapter_number
-            )
-            self.logger.debug(f"Using legacy context with {len(context)} messages")
+            # RAG is disabled, prepare minimal context
+            context = [
+                {"role": "system", "content": "You are a professional writer creating a book."},
+                {"role": "user", "content": prompt if prompt else "Continue writing the book."}
+            ]
+            self.logger.debug("Using minimal context without RAG")
 
         provider = self._get_provider(provider_name)
 

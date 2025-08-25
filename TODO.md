@@ -1,14 +1,34 @@
 # TODO: Ghostwriter AI Improvement Roadmap
 
-## 📊 CURRENT STATUS (2025-01-25)
+## 📊 CURRENT STATUS (2025-01-26)
 
-**✅ COMPLETED: 38 tasks** (+7 from previous update)
+**✅ COMPLETED: 43 tasks** (+5 from previous update)
 **🔄 IN PROGRESS: 0 tasks**  
-**📝 TODO: 31 tasks** (-7 completed)
+**📝 TODO: 26 tasks** (-5 completed)
 
 ---
 
-## 🎉 LATEST ACHIEVEMENTS (2025-01-25)
+## 🎉 LATEST ACHIEVEMENTS (2025-01-26)
+
+### ✅ Legacy Code Cleanup - FULLY COMPLETED
+1. **Removed backward compatibility code**
+   - Deleted `migrate_to_prompt_service.py` migration script
+   - Deleted `prompts_templated.py` old prompts system  
+   - Removed backward compatibility from `rag_enhanced_system.py`
+   - Removed legacy manager from `rag_hybrid_manager.py`
+   - Removed backward compatibility from `style_templates.py`
+
+2. **Removed deprecated features**
+   - Removed RAGMode.DISABLED (no backward compatibility mode)
+   - Removed legacy context manager fallback from `generation_service.py`
+   - Updated tests to remove legacy/backward compatibility tests
+
+3. **Cleaned up old configuration files**
+   - Deleted `FIXES_IMPLEMENTED.md`
+   - Deleted `primer.md`
+   - Updated `.gitignore` to exclude test files
+
+## 🎉 PREVIOUS ACHIEVEMENTS (2025-01-25)
 
 ### ✅ Enhanced RAG System - FULLY COMPLETED
 7. **Advanced RAG Components** (`rag_*.py`)
@@ -90,12 +110,12 @@
 - [x] Zintegrowany system w `rag_enhanced_system.py`
 - [x] **USUNIĘTO**: Stary prosty RAG zastąpiony nowym systemem
 
-### 1.4 Czyszczenie Legacy Code
-- [ ] **USUŃ WSZYSTKIE**: Nieużywane pliki z poprzednich wersji
-- [ ] **USUŃ**: Kod z flagami backward compatibility
-- [ ] **USUŃ**: Deprecated metody i klasy
-- [ ] **USUŃ**: Stare pliki konfiguracyjne
-- [ ] Refaktoryzacja bez zachowania kompatybilności
+### 1.4 Czyszczenie Legacy Code ✅ COMPLETED (2025-01-26)
+- [x] **USUNIĘTO WSZYSTKIE**: Nieużywane pliki z poprzednich wersji
+- [x] **USUNIĘTO**: Kod z flagami backward compatibility
+- [x] **USUNIĘTO**: Deprecated metody i klasy  
+- [x] **USUNIĘTO**: Stare pliki konfiguracyjne
+- [x] Refaktoryzacja bez zachowania kompatybilności
 
 ---
 

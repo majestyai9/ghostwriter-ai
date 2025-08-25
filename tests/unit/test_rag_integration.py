@@ -246,11 +246,11 @@ class TestHybridContextManager(unittest.TestCase):
         from token_optimizer_rag import RAGConfig, RAGMode
         self.config = RAGConfig(mode=RAGMode.HYBRID)
 
-    def test_backward_compatibility(self):
-        """Test that disabled mode works like legacy system"""
+    def test_rag_basic_mode(self):
+        """Test basic RAG mode functionality"""
         from token_optimizer_rag import HybridContextManager, RAGConfig, RAGMode
 
-        config = RAGConfig(mode=RAGMode.DISABLED)
+        config = RAGConfig(mode=RAGMode.BASIC)
         manager = HybridContextManager(
             config=config,
             provider=self.mock_provider,

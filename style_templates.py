@@ -457,9 +457,8 @@ def apply_style(prompt: str, style: str, prompt_type: str = 'base', style_manage
         prompt: Original prompt
         style: Style to apply
         prompt_type: Type of prompt
-        style_manager: StyleManager instance (optional, for backward compatibility)
+        style_manager: StyleManager instance (required)
     """
     if style_manager is None:
-        # For backward compatibility - create temporary instance
-        style_manager = StyleManager()
+        raise ValueError("StyleManager instance is required")
     return style_manager.apply_style_to_prompt(prompt, style, prompt_type)

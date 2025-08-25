@@ -52,7 +52,6 @@ class HybridContextManager:
         self.logger = logging.getLogger(__name__)
 
         # Initialize components
-        self.legacy_manager = BookContextManager(max_tokens)
         self.window_manager = SlidingWindowManager(max_tokens)
 
         # Initialize summarizer if provider is available
@@ -78,9 +77,9 @@ class HybridContextManager:
         Returns:
             Optimized context as message list
         """
-        # Use legacy manager if RAG is disabled
+        # RAG must be enabled
         if self.config.mode.value == "disabled":
-            return self.legacy_manager.prepare_context(book, current_chapter)
+            raise ValueError("RAG system is disabled. Please enable RAG mode.")
 
         # Calculate token budgets
         available_tokens = self.max_tokens - 4096  # Reserve for response

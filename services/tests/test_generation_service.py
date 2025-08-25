@@ -276,22 +276,17 @@ class TestGenerationService:
             
             assert result == ["chunk1", "chunk2", "chunk3"]
     
-    def test_generate_book_chapter_with_legacy_context(
+    def test_generate_book_chapter_without_rag(
         self,
         generation_service,
         mock_provider_factory,
         mock_provider
     ):
-        """Test book chapter generation with legacy context manager."""
+        """Test book chapter generation without RAG context."""
         mock_provider_factory.create_provider.return_value = mock_provider
         
-        # Mock legacy context manager
-        mock_context = [
-            {"role": "system", "content": "You are a book writer"},
-            {"role": "user", "content": "Write chapter 1"}
-        ]
-        generation_service._book_context_manager = MagicMock()
-        generation_service._book_context_manager.prepare_context.return_value = mock_context
+        # Disable RAG
+        generation_service._hybrid_context_manager = None
         
         book_data = {
             "title": "Test Book",

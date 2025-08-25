@@ -218,7 +218,7 @@ class EnhancedRAGSystem:
             
             self.logger.info("Built knowledge graph from book content")
         
-        # Use base manager for backward compatibility
+        # Index with base manager
         self.base_manager.index_book(book_data)
         
         self.indexed_chapters = set(range(len(chapters)))
