@@ -845,6 +845,11 @@ ghostwriter-ai/
 - **Added missing _call_with_retry method** - Implemented comprehensive retry logic with circuit breaker protection in base provider class
 - **Fixed API key configuration** - Ensured consistent API key handling across all providers (OpenAI, Anthropic, Gemini, Cohere, OpenRouter)
 - **Cache Manager improvements** - MemoryCache now properly accepts and uses expire parameter for TTL management
+- **Fixed Gemini Provider retry logic** - Now properly uses _call_with_retry with circuit breaker for all API calls
+- **Fixed Gemini error handling** - _handle_error now correctly raises exceptions instead of returning them
+- **Fixed token counting in Gemini** - Tokenizer now accepts API key parameter and properly handles authentication
+- **Added UTF-8 encoding** - All file operations now explicitly use UTF-8 encoding to prevent Windows encoding issues
+- **Improved response handling** - Gemini provider now handles empty responses gracefully without crashes
 
 ### Code Quality & Architecture
 - **Refactored generate.py** - New `BookGenerator` class eliminates code duplication

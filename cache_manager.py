@@ -51,10 +51,11 @@ class MemoryCache(CacheBackend):
         cleanup_interval: Seconds between automatic cleanups (default: 300)
     """
 
-    def __init__(self, max_size: int = 1000, cleanup_interval: int = 300):
+    def __init__(self, max_size: int = 1000, cleanup_interval: int = 300, expire: int = None, **kwargs):
         self.cache = OrderedDict()  # Using OrderedDict for proper LRU
         self.max_size = max_size
         self.cleanup_interval = cleanup_interval
+        self.default_expire = expire  # Store default expire time
         self.logger = logging.getLogger(__name__)
         self.lock = threading.RLock()  # RLock for nested locking safety
         self.last_cleanup = time.time()
@@ -143,9 +144,11 @@ class MemoryCache(CacheBackend):
                 self.logger.debug(f"Evicted LRU cache entry: {lru_key}")
 
             # Add or update entry
+            # Use provided expire time or fall back to default
+            expire_time = expire if expire is not None else self.default_expire
             self.cache[key] = {
                 'value': value,
-                'expire': current_time + expire if expire else None,
+                'expire': current_time + expire_time if expire_time else None,
                 'created': current_time,
                 'last_accessed': current_time
             }
@@ -264,14 +267,14 @@ class FileCache(CacheBackend):
     def _load_index(self) -> Dict:
         if self.index_file.exists():
             try:
-                with open(self.index_file) as f:
+                with open(self.index_file, encoding='utf-8') as f:
                     return json.load(f)
             except:
                 pass
         return {}
 
     def _save_index(self):
-        with open(self.index_file, 'w') as f:
+        with open(self.index_file, 'w', encoding='utf-8') as f:
             json.dump(self.index, f)
 
     def _get_file_path(self, key: str) -> Path:

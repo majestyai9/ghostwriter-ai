@@ -24,7 +24,7 @@ def create_book_frontpage(book_base_dir, book):
 
     # Create a markdown with book title and toc with links for each chapter and section
     # Write to temporary file first
-    with open(temp_file, "w") as f:
+    with open(temp_file, "w", encoding='utf-8') as f:
         f.write(f"# {title}\n\n")
         f.write(f"{summary}\n\n")
         f.write("## Índice\n\n")
@@ -53,7 +53,7 @@ def create_chapter_file(book_base_dir, book, chapter):
 
     chapter_content = chapter.get('content') or f'Chapter "{chapter_title}" content will be here'
 
-    with open(f"{book_base_dir}/{chapter_file}", "w") as f:
+    with open(f"{book_base_dir}/{chapter_file}", "w", encoding='utf-8') as f:
         f.write(f"# {title}\n\n")
         f.write(f"## {chapter_number}. {chapter_title}\n\n")
         f.write(chapter_content)

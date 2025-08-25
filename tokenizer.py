@@ -123,14 +123,25 @@ class AnthropicTokenizer(BaseTokenizer):
 class GeminiTokenizer(BaseTokenizer):
     """Google Gemini tokenizer"""
 
-    def __init__(self, model_name: str = "gemini-pro"):
+    def __init__(self, model_name: str = "gemini-pro", api_key: str = None):
         super().__init__(model_name)
         self.model = None
 
         try:
             import google.generativeai as genai
-            # Try to get the model for token counting
-            self.model = genai.GenerativeModel(model_name)
+            import os
+            
+            # Get API key from parameter or environment
+            if not api_key:
+                api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+            
+            if api_key:
+                # Configure the API key
+                genai.configure(api_key=api_key)
+                # Try to get the model for token counting
+                self.model = genai.GenerativeModel(model_name)
+            else:
+                self.logger.warning("No Gemini API key found for token counting")
         except Exception as e:
             self.logger.warning(f"Could not initialize Gemini model: {e}")
 
@@ -143,7 +154,9 @@ class GeminiTokenizer(BaseTokenizer):
         if self.model and hasattr(self.model, 'count_tokens'):
             try:
                 result = self.model.count_tokens(text)
-                return result.total_tokens if hasattr(result, 'total_tokens') else result
+                if hasattr(result, 'total_tokens'):
+                    return result.total_tokens
+                return int(result) if result else 0
             except Exception as e:
                 self.logger.debug(f"Gemini token counting failed: {e}")
 

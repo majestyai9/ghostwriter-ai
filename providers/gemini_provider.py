@@ -70,14 +70,29 @@ class GeminiProvider(LLMProvider):
         }))
 
         try:
+            # Use the base class retry mechanism with circuit breaker
             response = self._call_with_retry(
                 self._generate_content,
-                messages=messages,
+                prompt=messages,  # Gemini expects 'prompt' not 'messages'
                 generation_config=generation_config,
                 **kwargs
             )
 
-            content = response.text
+            # Check if response has valid content
+            if hasattr(response, 'candidates') and response.candidates:
+                candidate = response.candidates[0]
+                if hasattr(candidate, 'content') and hasattr(candidate.content, 'parts'):
+                    content = ''.join(part.text for part in candidate.content.parts if hasattr(part, 'text'))
+                else:
+                    # Try direct text access
+                    content = response.text if hasattr(response, 'text') else ""
+            elif hasattr(response, 'text'):
+                content = response.text
+            else:
+                # Handle case where response has no content
+                self.logger.warning("Gemini response has no valid content")
+                content = ""
+                
             tokens_used = self.count_tokens(prompt) + self.count_tokens(content)
 
             event_manager.emit(Event(EventType.API_CALL_COMPLETED, {
@@ -96,7 +111,9 @@ class GeminiProvider(LLMProvider):
             )
 
         except Exception as e:
-            raise self._handle_error(e)
+            # _handle_error should raise an exception, not return it
+            error = self._handle_error(e)
+            raise error
 
     def generate_stream(self,
                        prompt: str,
@@ -123,21 +140,26 @@ class GeminiProvider(LLMProvider):
         }))
 
         try:
-            response = self.model.generate_content(
-                messages,
+            # Use retry mechanism for streaming as well
+            response = self._call_with_retry(
+                self.model.generate_content,
+                messages,  # This is already a string prompt from _convert_messages
                 generation_config=generation_config,
                 stream=True,
                 **kwargs
             )
 
             for chunk in response:
-                yield chunk.text
+                if hasattr(chunk, 'text'):
+                    yield chunk.text
 
         except Exception as e:
-            raise self._handle_error(e)
+            error = self._handle_error(e)
+            raise error
 
-    def _generate_content(self, **kwargs):
-        return self.model.generate_content(**kwargs)
+    def _generate_content(self, prompt: str, **kwargs):
+        # Gemini expects the prompt as the first argument
+        return self.model.generate_content(prompt, **kwargs)
 
     def _convert_messages(self, prompt: str, history: List[Dict[str, str]] = None) -> str:
         """Convert messages to Gemini format"""
@@ -146,8 +168,8 @@ class GeminiProvider(LLMProvider):
 
         if history:
             for msg in history:
-                role = msg['role']
-                content = msg['content']
+                role = msg.get('role', '')
+                content = msg.get('content', '')
 
                 if role == 'system':
                     full_prompt += f"Instructions: {content}\n\n"
@@ -160,21 +182,31 @@ class GeminiProvider(LLMProvider):
         return full_prompt
 
     def _handle_error(self, error: Exception) -> ProviderError:
-        if isinstance(error, genai.errors.PermissionDeniedError):
-            return ProviderAuthError(str(error))
-        elif isinstance(error, genai.errors.ResourceExhaustedError):
-            return ProviderRateLimitError(str(error))
-        elif isinstance(error, genai.errors.GoogleAPICallError):
-            return ProviderError(str(error))
+        """Handle Gemini-specific errors and return appropriate exception"""
+        error_str = str(error)
+        
+        if "PermissionDenied" in error_str or "API key" in error_str:
+            return ProviderAuthError(error_str)
+        elif "ResourceExhausted" in error_str or "rate limit" in error_str.lower():
+            return ProviderRateLimitError(error_str)
+        elif "InvalidArgument" in error_str:
+            return ProviderError(f"Invalid request: {error_str}")
         else:
-            return ProviderError(str(error))
+            return ProviderError(error_str)
 
     def count_tokens(self, text: str) -> int:
         """Count tokens using Gemini's token counter"""
+        if not text:
+            return 0
+            
         try:
-            return self.model.count_tokens(text).total_tokens
+            result = self.model.count_tokens(text)
+            if hasattr(result, 'total_tokens'):
+                return result.total_tokens
+            return int(result)
         except Exception as e:
             self.logger.warning(f"Token counting failed with model.count_tokens: {e}")
+            # Fallback to approximation
             return len(text) // 4
 
     def get_model_info(self) -> Dict[str, Any]:
