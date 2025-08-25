@@ -2,6 +2,17 @@
 
 This file provides comprehensive guidance to Claude Code when working with Python code in this repository.
 
+## 📦 GitHub Repository
+
+**Main Repository**: https://github.com/majestyai9/ghostwriter-ai
+
+When pushing changes, use:
+```bash
+git push fork main
+```
+
+The `fork` remote is configured to point to the majestyai9 repository.
+
 ## 🔴 CRITICAL: Documentation & Version Control Workflow
 
 ### After EVERY Important Change:
@@ -46,7 +57,7 @@ This file provides comprehensive guidance to Claude Code when working with Pytho
    - Added tests for Gemini integration"
    
    # Push to GitHub (only when explicitly requested by user)
-   git push origin main
+   git push fork main
    ```
 
 4. **Commit Message Format:**
