@@ -1,10 +1,226 @@
 # TODO: Ghostwriter AI Improvement Roadmap
 
-## 📊 CURRENT STATUS (2025-01-15)
+## 📊 CURRENT STATUS (2025-01-25)
 
-**✅ COMPLETED: 25 tasks**  
+**✅ COMPLETED: 31 tasks** (+6 from previous update)
 **🔄 IN PROGRESS: 0 tasks**  
-**📝 TODO: 25+ tasks**
+**📝 TODO: 38 tasks** (-6 completed)
+
+---
+
+## 🎉 LATEST ACHIEVEMENTS (2025-01-25)
+
+### ✅ Advanced Error Recovery & Resilience - FULLY COMPLETED
+1. **Distributed Tracing** (`tracing.py`)
+   - OpenTelemetry integration with spans and events
+   - Console and OTLP exporters support
+   - Automatic HTTP request instrumentation
+
+2. **Saga Pattern** (`saga_pattern.py`) 
+   - Multi-step transactional operations
+   - Automatic compensation on failures
+   - BookGenerationSaga implementation
+
+3. **Health Monitoring** (`health_check.py`)
+   - Comprehensive health checks for all services
+   - Provider, cache, RAG, and filesystem monitoring
+   - Overall system status aggregation
+
+4. **Fallback Strategies** (`fallback_strategies.py`)
+   - 6 different fallback methods for content generation
+   - Provider switching and content adaptation
+   - Template-based generation as last resort
+
+5. **Dead Letter Queue** (`dead_letter_queue.py`)
+   - Persistent storage of failed operations
+   - Automatic retry with exponential backoff
+   - Manual operation management
+
+6. **Legacy Code Cleanup**
+   - Removed old retry logic from `book_generator.py`
+   - Now using circuit breaker pattern exclusively
+   - Integrated with DLQ and fallback strategies
+
+---
+
+## 🚨 NOWY PLAN IMPLEMENTACJI - BEZ WSTECZNEJ KOMPATYBILNOŚCI
+
+### ⚠️ WAŻNE: Usuwanie Starego Kodu
+- **ZAWSZE** usuwać stare pliki i kod przy refaktoryzacji
+- **NIE** zachowywać wstecznej kompatybilności
+- **NIE** implementować interfejsu webowego - tylko CLI/TUI
+- Priorytet: czysty, nowoczesny kod bez legacy baggage
+
+---
+
+## 🎯 FAZA 1: INFRASTRUKTURA KRYTYCZNA (Tydzień 1-2)
+
+### 1.1 Rozszerzone Error Recovery & Resilience ✅ COMPLETED (2025-01-25)
+- [x] Distributed tracing dla debugowania złożonych przepływów (`tracing.py`)
+- [x] Implementacja saga pattern dla transakcji wieloetapowych (`saga_pattern.py`)
+- [x] Health check endpoints dla wszystkich krytycznych usług (`health_check.py`)
+- [x] Fallback strategies dla generowania treści (`fallback_strategies.py`)
+- [x] Dead letter queue dla nieudanych operacji (`dead_letter_queue.py`)
+- [x] **USUNIĘTO**: Stary kod error handling bez circuit breaker z `book_generator.py`
+
+### 1.2 Zaawansowane Zarządzanie Tokenami
+- [ ] Dynamiczna alokacja tokenów na podstawie złożoności rozdziału
+- [ ] Modele predykcji użycia tokenów (ML-based)
+- [ ] Token pooling dla równoległego generowania
+- [ ] Adaptacyjne okna kontekstowe
+- [ ] Cross-provider token normalization
+- [ ] **USUŃ**: Prosty token counter bez budżetowania
+
+### 1.3 Ulepszony System RAG
+- [ ] Hybrid search (dense + sparse retrieval)
+- [ ] Knowledge graph dla relacji między encjami
+- [ ] Incremental indexing dla real-time updates
+- [ ] Semantic caching layer dla zapytań RAG
+- [ ] Metryki jakości RAG i feedback loop
+- [ ] **USUŃ**: Stary prosty RAG bez wektoryzacji
+
+### 1.4 Czyszczenie Legacy Code
+- [ ] **USUŃ WSZYSTKIE**: Nieużywane pliki z poprzednich wersji
+- [ ] **USUŃ**: Kod z flagami backward compatibility
+- [ ] **USUŃ**: Deprecated metody i klasy
+- [ ] **USUŃ**: Stare pliki konfiguracyjne
+- [ ] Refaktoryzacja bez zachowania kompatybilności
+
+---
+
+## 🎯 FAZA 2: ULEPSZENIA GENEROWANIA (Tydzień 2-3)
+
+### 2.1 Zaawansowany System Postaci
+- [ ] Śledzenie ewolucji postaci przez rozdziały
+- [ ] Modelowanie emocjonalne (OCEAN personality traits)
+- [ ] Checker spójności dialogów z embeddings
+- [ ] Matryca interakcji dla relacji
+- [ ] Synteza głosu dla unikalnych wzorców mowy
+- [ ] Knowledge base per postać
+- [ ] **USUŃ**: Prosty character profile bez śledzenia
+
+### 2.2 Progress Tracking & Wznawialność
+- [ ] Metryki granularne (poziom akapitu)
+- [ ] Estymacja czasu na podstawie historycznych rate'ów
+- [ ] Wizualizacja postępu (burn-down charts)
+- [ ] Multi-version checkpoint branching
+- [ ] Progress webhooks dla zewnętrznego monitoringu
+- [ ] **USUŃ**: Podstawowy checkpoint bez wersjonowania
+
+### 2.3 System Cache Multi-Tier
+- [ ] Implementacja Memory → Redis → Disk
+- [ ] Cache warming strategies
+- [ ] Polityki invalidacji (TTL, LRU, LFU)
+- [ ] Distributed cache synchronization
+- [ ] Analytics hit rate i optymalizacja
+- [ ] **USUŃ**: Prosty in-memory cache
+
+---
+
+## 🎯 FAZA 3: WSPÓŁPRACA I EKSPORT (Tydzień 3-4)
+
+### 3.1 Funkcje Współpracy
+- [ ] Real-time collaborative editing (WebSockets w CLI)
+- [ ] Branching/merging dla równoległych storylines
+- [ ] System komentarzy i sugestii
+- [ ] Role-based permissions (editor, reviewer, writer)
+- [ ] Change tracking z atrybucją
+- [ ] **USUŃ**: Single-user assumptions w kodzie
+
+### 3.2 Rozszerzony System Eksportu
+- [ ] Wsparcie Kindle (MOBI/AZW3)
+- [ ] Custom CSS styling dla eksportów
+- [ ] Print-ready PDF z paginacją
+- [ ] Generowanie skryptów audiobook (timing marks)
+- [ ] Batch export z presetami formatów
+- [ ] Metadata embedding dla wszystkich formatów
+- [ ] **USUŃ**: Podstawowy eksport bez stylizacji
+
+---
+
+## 🎯 FAZA 4: JAKOŚĆ I DEPLOYMENT (Tydzień 4-5)
+
+### 4.1 Comprehensive Testing
+- [ ] 95% code coverage target
+- [ ] Property-based testing (Hypothesis)
+- [ ] Mutation testing (mutmut)
+- [ ] Contract testing dla API
+- [ ] Performance regression tests
+- [ ] Load testing (100+ concurrent users)
+- [ ] **USUŃ**: Stare testy dla deprecated funkcji
+
+### 4.2 CI/CD Pipeline
+- [ ] GitHub Actions workflow setup
+- [ ] Docker containerization
+- [ ] Kubernetes deployment manifests
+- [ ] Terraform infrastructure as code
+- [ ] Automated rollback mechanisms
+- [ ] **USUŃ**: Ręczne skrypty deploymentu
+
+---
+
+## 🖥️ FAZA CLI/TUI: INTERAKTYWNY TERMINAL (Tydzień 2-4)
+
+### CLI-1: Rdzeń Aplikacji TUI
+- [ ] Utworzenie tui.py z klasą GhostwriterApp(App)
+- [ ] Integracja z kontenerem DI (get_container())
+- [ ] Reaktywny stan aplikacji (active_project)
+- [ ] Globalne skróty klawiszowe (q, ctrl+c, ctrl+s, ctrl+p)
+- [ ] Nawigacja oparta na Screen stack
+- [ ] **USUŃ**: Stary CLI handler bez interaktywności
+
+### CLI-2: Panel Zarządzania Projektami
+- [ ] ProjectScreen z DataTable dla listy projektów
+- [ ] Kolumny: Tytuł, Status, Ostatnia Modyfikacja, ID
+- [ ] Interakcje: Enter (otwórz), N (nowy), D (usuń)
+- [ ] NewProjectModal dla tworzenia projektów
+- [ ] ConfirmDeleteModal dla usuwania
+- [ ] **USUŃ**: Stary project_manager CLI
+
+### CLI-3: Centrum Kontroli Generowania
+- [ ] GenerationScreen z multi-panel layout
+- [ ] GenerationControlPanel (tytuł, instrukcje, styl)
+- [ ] BookTreeView dla hierarchicznej struktury
+- [ ] LogPanel z real-time event subscription
+- [ ] GenerationProgress z progress bar
+- [ ] Asynchroniczne workery (@work decorator)
+- [ ] **USUŃ**: Synchroniczny generator
+
+### CLI-4: Ekran Ustawień
+- [ ] SettingsScreen z VerticalScroll
+- [ ] Input widgets dla API keys (password=True)
+- [ ] Select dla LLM_PROVIDER, LOG_LEVEL
+- [ ] Switch dla flag (ENABLE_RAG)
+- [ ] Zapis/odczyt z .env
+- [ ] **USUŃ**: Stara konfiguracja z plików
+
+### CLI-5: Zarządzanie Postaciami
+- [ ] CharacterScreen z dwupanelowym układem
+- [ ] ListView postaci po lewej
+- [ ] Formularz edycji po prawej
+- [ ] Integracja z CharacterManager
+- [ ] **USUŃ**: CLI commands dla postaci
+
+### CLI-6: System Eksportu
+- [ ] ExportModal z checkbox dla formatów
+- [ ] Background worker dla eksportu
+- [ ] Progress tracking dla każdego formatu
+- [ ] Notyfikacje o ukończeniu
+- [ ] **USUŃ**: Synchroniczny eksport
+
+### CLI-7: Stylizacja i UX
+- [ ] tui.tcss z CSS dla Textual
+- [ ] Rich markup dla kolorowych logów
+- [ ] Spójna kolorystyka statusów
+- [ ] Responsive layouts
+- [ ] **USUŃ**: Print statements
+
+### CLI-8: Integracja Asynchroniczna
+- [ ] Worker threads dla długich operacji
+- [ ] Event-driven updates UI
+- [ ] Non-blocking user input
+- [ ] Concurrent operations support
+- [ ] **USUŃ**: Blokujące operacje I/O
 
 ---
 
@@ -154,9 +370,11 @@
 - Use Sphinx for auto-documentation
 - Document all public APIs
 
-#### ❌ **NOT DONE YET** - Create architecture documentation
-- Add `docs/ARCHITECTURE.md`
-- Include system diagrams
+#### ✅ **THIS IS DONE - ALREADY IMPLEMENTED** - Create architecture documentation
+- **STATUS: COMPLETED ON 2025-01-15**
+- Created comprehensive `docs/ARCHITECTURE.md` with 10 major sections
+- Included multiple Mermaid diagrams and ASCII art visualizations
+- Documented all system components, data flows, and architectural patterns
 
 #### ❌ **NOT DONE YET** - Add inline code documentation
 - Priority: token_optimizer_rag.py, generation_service.py
@@ -305,16 +523,34 @@
 ## 📊 PROGRESS METRICS
 
 ```
-CRITICAL TASKS:   8/9 completed   (89%) █████████░
-HIGH PRIORITY:    6/17 completed  (35%) ████░░░░░░
-MEDIUM PRIORITY:  0/14 completed  (0%)  ░░░░░░░░░░
-LOW PRIORITY:     0/9 completed   (0%)  ░░░░░░░░░░
-QUICK WINS:       5/10 completed  (50%) █████░░░░░
+ZADANIA UKOŃCZONE:     25/109 (23%)  ██░░░░░░░░
+NOWE ZADANIA CLI/TUI:  0/40  (0%)   ░░░░░░░░░░
+ZADANIA FAZA 1:        0/24  (0%)   ░░░░░░░░░░
+ZADANIA FAZA 2:        0/19  (0%)   ░░░░░░░░░░
+ZADANIA FAZA 3:        0/12  (0%)   ░░░░░░░░░░
+ZADANIA FAZA 4:        0/12  (0%)   ░░░░░░░░░░
 -------------------------------------------------
-TOTAL:           19/59 completed  (32%) ███░░░░░░░
+TOTAL:                25/109 (23%)  ██░░░░░░░░
 ```
+
+### 📈 HARMONOGRAM IMPLEMENTACJI
+
+```
+Tydzień 1-2: FAZA 1 (Infrastruktura) + CLI-1,2
+Tydzień 2-3: FAZA 2 (Generowanie) + CLI-3,4,5  
+Tydzień 3-4: FAZA 3 (Współpraca) + CLI-6,7,8
+Tydzień 4-5: FAZA 4 (Jakość i Deployment)
+```
+
+### 🎯 PRIORYTETY
+
+1. **NATYCHMIAST**: Usunięcie starego kodu (FAZA 1.4)
+2. **PILNE**: Implementacja CLI/TUI (CLI-1 do CLI-8)
+3. **WAŻNE**: Infrastruktura krytyczna (FAZA 1.1-1.3)
+4. **NORMALNE**: Ulepszenia generowania (FAZA 2)
+5. **NISKIE**: Współpraca i deployment (FAZA 3-4)
 
 ---
 
 *Last Updated: 2025-01-15*
-*Major Update: Implemented proper DI with dependency-injector, Added comprehensive unit tests (80%+ coverage), Optimized RAG with IVF/GPU, Refactored main.py into modules, Created comprehensive PromptService*
+*Major Update: Dodano szczegółowy plan CLI/TUI z Textual, usunięto web interface, dodano wymóg usuwania starego kodu bez backward compatibility*

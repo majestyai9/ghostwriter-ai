@@ -240,57 +240,80 @@ class BookGenerator:
             book_base_dir: Base directory for the book
         """
         chapter_num = chapter_index + 1
-        max_retries = 3
-        retry_count = 0
+        
+        try:
+            self.logger.info(
+                f"Generating chapter {chapter_num}/{total_chapters}: "
+                f"{chapter.get('title', 'Untitled')}"
+            )
 
-        while retry_count < max_retries:
-            try:
-                self.logger.info(
-                    f"Generating chapter {chapter_num}/{total_chapters}: "
-                    f"{chapter.get('title', 'Untitled')}"
-                )
+            # Generate chapter - provider's _call_with_retry handles retries with circuit breaker
+            chapter['content'] = self.generation_service.generate_book_chapter(
+                settings.LLM_PROVIDER,
+                book,
+                chapter_index,
+                book_dir=book_base_dir  # Pass book directory for RAG
+            )
 
-                chapter['content'] = self.generation_service.generate_book_chapter(
-                    settings.LLM_PROVIDER,
-                    book,
-                    chapter_index,
-                    book_dir=book_base_dir  # Pass book directory for RAG
-                )
+            # Save after each successful chapter
+            self.file_ops.save_json_atomically(book, book_json_path)
 
-                # Save after each successful chapter
+            # Create periodic checkpoint
+            self.checkpoint_manager.create_periodic_checkpoint(
+                book, book_base_dir, chapter_index, total_chapters
+            )
+
+            # Emit progress event
+            event_manager.emit(Event(EventType.CHAPTER_COMPLETED, {
+                'chapter_number': chapter_num,
+                'chapter_title': chapter.get('title', 'Untitled'),
+                'total_chapters': total_chapters
+            }))
+
+        except Exception as e:
+            self.logger.error(
+                f"Failed to generate chapter {chapter_num} after circuit breaker retries: {e}"
+            )
+            
+            # Add to dead letter queue for later retry
+            from dead_letter_queue import add_to_dlq, OperationType
+            operation_id = add_to_dlq(
+                OperationType.CHAPTER_GENERATION,
+                {
+                    "chapter_number": chapter_num,
+                    "chapter_title": chapter.get('title', 'Untitled'),
+                    "book": book,
+                    "chapter_index": chapter_index,
+                    "book_base_dir": book_base_dir
+                },
+                e
+            )
+            self.logger.info(f"Added failed chapter to DLQ with ID: {operation_id}")
+            
+            # Try fallback strategies
+            from fallback_strategies import FallbackContext, fallback_manager
+            fallback_context = FallbackContext(
+                original_prompt=f"Generate chapter {chapter_num}: {chapter.get('title', 'Untitled')}",
+                original_provider=settings.LLM_PROVIDER,
+                original_error=str(e),
+                attempt_number=1,
+                chapter_number=chapter_num,
+                book_title=book.get('title', '')
+            )
+            
+            fallback_content = fallback_manager.execute_fallback(fallback_context)
+            
+            if fallback_content:
+                # Use fallback content
+                chapter['content'] = fallback_content
+                self.logger.warning(f"Using fallback content for chapter {chapter_num}")
                 self.file_ops.save_json_atomically(book, book_json_path)
-
-                # Create periodic checkpoint
-                self.checkpoint_manager.create_periodic_checkpoint(
-                    book, book_base_dir, chapter_index, total_chapters
+            else:
+                # Complete failure - handle with placeholder
+                self._handle_chapter_failure(
+                    book, chapter, chapter_num, chapter_index,
+                    book_json_path, book_base_dir, e
                 )
-
-                # Emit progress event
-                event_manager.emit(Event(EventType.CHAPTER_COMPLETED, {
-                    'chapter_number': chapter_num,
-                    'chapter_title': chapter.get('title', 'Untitled'),
-                    'total_chapters': total_chapters
-                }))
-                break  # Success, exit retry loop
-
-            except Exception as e:
-                retry_count += 1
-                self.logger.error(
-                    f"Failed to generate chapter {chapter_num} "
-                    f"(attempt {retry_count}/{max_retries}): {e}"
-                )
-
-                if retry_count >= max_retries:
-                    self._handle_chapter_failure(
-                        book, chapter, chapter_num, chapter_index,
-                        book_json_path, book_base_dir, e
-                    )
-                    break
-                else:
-                    # Wait before retry with exponential backoff
-                    wait_time = retry_count * 2
-                    self.logger.info(f"Waiting {wait_time} seconds before retry...")
-                    time.sleep(wait_time)
 
     def _handle_chapter_failure(
         self,
