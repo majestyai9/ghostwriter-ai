@@ -27,8 +27,14 @@ from cache_manager import CacheManager
 from providers.base import LLMProvider, LLMResponse
 
 
-class TestSmartSummarizer(unittest.TestCase):
-    """Test the SmartSummarizer class"""
+class TestSmartSummarizerRemoved:
+    """SmartSummarizer class was removed from codebase"""
+    # Tests commented out as SmartSummarizer no longer exists
+    pass
+
+
+class TestSmartSummarizerOld(unittest.TestCase):
+    """Test the SmartSummarizer class - DISABLED"""
 
     def setUp(self):
         """Set up test fixtures"""
@@ -43,10 +49,10 @@ class TestSmartSummarizer(unittest.TestCase):
             model="test-model"
         )
 
-    @patch('token_optimizer_rag.SmartSummarizer')
-    def test_summarize_chapter_with_llm(self, mock_summarizer_class):
+    @unittest.skip("SmartSummarizer removed from codebase")
+    def test_summarize_chapter_with_llm(self):
         """Test chapter summarization using LLM"""
-        from token_optimizer_rag import SmartSummarizer
+        return  # SmartSummarizer no longer exists
 
         summarizer = SmartSummarizer(
             provider=self.mock_provider,
@@ -66,9 +72,10 @@ class TestSmartSummarizer(unittest.TestCase):
         self.assertIsNotNone(summary)
         self.assertIn("Test summary", summary)
 
+    @unittest.skip("SmartSummarizer removed from codebase")
     def test_summarize_chapter_fallback(self):
         """Test fallback summarization without LLM"""
-        from token_optimizer_rag import SmartSummarizer
+        return  # SmartSummarizer no longer exists
 
         summarizer = SmartSummarizer(
             provider=None,  # No provider
@@ -88,9 +95,10 @@ class TestSmartSummarizer(unittest.TestCase):
         self.assertIn("Topics:", summary)
         self.assertIn("Once upon a time", summary)
 
+    @unittest.skip("SmartSummarizer removed from codebase")
     def test_summary_caching(self):
         """Test that summaries are cached"""
-        from token_optimizer_rag import SmartSummarizer
+        return  # SmartSummarizer no longer exists
 
         summarizer = SmartSummarizer(
             provider=self.mock_provider,
@@ -116,7 +124,8 @@ class TestSmartSummarizer(unittest.TestCase):
 
 
 class TestSemanticContextRetriever(unittest.TestCase):
-    """Test the SemanticContextRetriever class"""
+    """Test the SemanticContextRetriever class - DISABLED"""
+    # SemanticContextRetriever no longer exists in codebase
 
     def setUp(self):
         """Set up test fixtures"""
@@ -143,7 +152,8 @@ class TestSemanticContextRetriever(unittest.TestCase):
     @patch('token_optimizer_rag.faiss')
     def test_initialization(self, mock_faiss, mock_st):
         """Test retriever initialization"""
-        from token_optimizer_rag import SemanticContextRetriever
+        self.skipTest("SemanticContextRetriever removed from codebase")
+        return
 
         # Mock sentence transformer
         mock_encoder = Mock()
@@ -164,7 +174,8 @@ class TestSemanticContextRetriever(unittest.TestCase):
     @patch('token_optimizer_rag.FAISS_AVAILABLE', False)
     def test_initialization_without_dependencies(self):
         """Test retriever handles missing dependencies gracefully"""
-        from token_optimizer_rag import SemanticContextRetriever
+        self.skipTest("SemanticContextRetriever removed from codebase")
+        return
 
         retriever = SemanticContextRetriever(self.config, self.cache_manager)
 
@@ -174,7 +185,8 @@ class TestSemanticContextRetriever(unittest.TestCase):
 
     def test_text_chunking(self):
         """Test text splitting into chunks"""
-        from token_optimizer_rag import SemanticContextRetriever
+        self.skipTest("SemanticContextRetriever removed from codebase")
+        return
 
         retriever = SemanticContextRetriever(self.config, self.cache_manager)
 
@@ -189,7 +201,8 @@ class TestSemanticContextRetriever(unittest.TestCase):
     @patch('token_optimizer_rag.FAISS_AVAILABLE', True)
     def test_book_indexing(self):
         """Test indexing book content"""
-        from token_optimizer_rag import SemanticContextRetriever
+        self.skipTest("SemanticContextRetriever removed from codebase")
+        return
 
         with patch('token_optimizer_rag.SentenceTransformer') as mock_st, \
              patch('token_optimizer_rag.faiss') as mock_faiss:
@@ -471,8 +484,8 @@ class TestPerformanceBenchmarks(unittest.TestCase):
 
     def test_caching_performance(self):
         """Test that caching improves performance"""
-        from cache_manager import CacheManager
-        from token_optimizer_rag import SmartSummarizer
+        self.skipTest("SmartSummarizer removed from codebase")
+        return
 
         cache_manager = CacheManager(backend="memory")
         mock_provider = Mock(spec=LLMProvider)

@@ -18,7 +18,7 @@ from string import Template
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 import yaml
-from pydantic import BaseModel, Field, ValidationError, field_validator
+from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator
 
 from exceptions import PromptServiceError
 
@@ -78,22 +78,16 @@ class PromptTemplate(BaseModel):
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     
-    @field_validator("variables", mode="before")
-    @classmethod
-    def extract_variables(cls, v: Any, info: Any) -> List[str]:
+    @model_validator(mode="after")
+    def extract_variables(self) -> "PromptTemplate":
         """Extract variables from template if not provided."""
-        if v:
-            return v
-        
-        template = info.data.get("template", "")
-        if not template:
-            return []
-        
-        # Extract variables from {var} and $var patterns
-        import re
-        vars_braces = re.findall(r"\{(\w+)\}", template)
-        vars_dollar = re.findall(r"\$(\w+)", template)
-        return list(set(vars_braces + vars_dollar))
+        if not self.variables:
+            # Extract variables from {var} and $var patterns
+            import re
+            vars_braces = re.findall(r"\{(\w+)\}", self.template)
+            vars_dollar = re.findall(r"\$(\w+)", self.template)
+            self.variables = list(set(vars_braces + vars_dollar))
+        return self
     
     def render(self, **kwargs: Any) -> str:
         """
@@ -116,13 +110,14 @@ class PromptTemplate(BaseModel):
         if missing:
             raise ValueError(f"Missing required variables: {missing}")
         
-        # Try format-style first, then Template-style
-        try:
-            return self.template.format(**kwargs)
-        except KeyError:
-            # Fallback to Template for $var syntax
+        # Check if template uses $var syntax
+        if "$" in self.template:
+            # Use Template for $var syntax
             tmpl = Template(self.template)
             return tmpl.safe_substitute(**kwargs)
+        else:
+            # Use format-style for {var} syntax
+            return self.template.format(**kwargs)
 
 
 class PromptMetrics(BaseModel):

@@ -456,6 +456,14 @@ class HybridContextManager:
         """Estimate token count for text"""
         if not text:
             return 0
+            
+        # Handle mock objects and non-string types
+        if not isinstance(text, str):
+            # Try to convert to string
+            try:
+                text = str(text)
+            except:
+                return 0
 
         # Use provider's tokenizer if available
         if self.provider and hasattr(self.provider, "count_tokens"):

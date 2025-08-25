@@ -38,7 +38,7 @@ if PYDANTIC_AVAILABLE:
         TOKEN_LIMIT: int = 4096
 
         # Optional settings with default values
-        CACHE_TYPE: str = "in_memory"
+        CACHE_TYPE: str = "memory"
         CACHE_TTL_SECONDS: int = 3600
         LOG_LEVEL: str = "INFO"
 
@@ -95,7 +95,7 @@ else:
             self.TOKEN_LIMIT = int(os.getenv('TOKEN_LIMIT', '4096'))
 
             # Optional settings with default values
-            self.CACHE_TYPE = os.getenv('CACHE_TYPE', 'in_memory')
+            self.CACHE_TYPE = os.getenv('CACHE_TYPE', 'memory')
             self.CACHE_TTL_SECONDS = int(os.getenv('CACHE_TTL_SECONDS', '3600'))
             self.LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')
 

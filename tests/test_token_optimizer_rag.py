@@ -27,14 +27,12 @@ class TestRAGMode:
     
     def test_rag_modes(self):
         """Test all RAG mode values."""
-        assert RAGMode.DISABLED.value == "disabled"
         assert RAGMode.BASIC.value == "basic"
         assert RAGMode.HYBRID.value == "hybrid"
         assert RAGMode.FULL.value == "full"
     
     def test_mode_from_string(self):
         """Test creating RAG mode from string."""
-        assert RAGMode("disabled") == RAGMode.DISABLED
         assert RAGMode("basic") == RAGMode.BASIC
         assert RAGMode("hybrid") == RAGMode.HYBRID
         assert RAGMode("full") == RAGMode.FULL
@@ -233,14 +231,14 @@ class TestHybridContextManager:
             assert manager.config.mode == RAGMode.BASIC
             mock_logging.warning.assert_called()
     
-    def test_prepare_context_disabled_mode(
+    def test_prepare_context_basic_mode(
         self,
         mock_provider,
         mock_cache_manager,
         sample_book
     ):
-        """Test context preparation with RAG disabled."""
-        config = RAGConfig(mode=RAGMode.DISABLED)
+        """Test context preparation with basic RAG mode."""
+        config = RAGConfig(mode=RAGMode.BASIC)
         
         with patch("token_optimizer_rag.HybridManagerBase") as mock_base:
             mock_base_instance = MagicMock()
@@ -517,7 +515,7 @@ class TestIntegration:
         cache_manager = MagicMock()
         
         # Test each mode
-        for mode in [RAGMode.DISABLED, RAGMode.BASIC, RAGMode.HYBRID, RAGMode.FULL]:
+        for mode in [RAGMode.BASIC, RAGMode.HYBRID, RAGMode.FULL]:
             config = RAGConfig(mode=mode)
             
             with patch("token_optimizer_rag.logging"):

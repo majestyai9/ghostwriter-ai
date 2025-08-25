@@ -588,7 +588,7 @@ class LLMProvider(ABC):
                 last_exception = e
                 
                 # Record failure in circuit breaker
-                self.circuit_breaker.record_failure()
+                self.circuit_breaker._record_failure()
                 
                 # Check if we should retry
                 if attempt >= max_retries:

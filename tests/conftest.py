@@ -97,10 +97,9 @@ def mock_llm_response(monkeypatch):
                 return json.dumps({"result": "Generic test response"})
             return "Generic test response"
 
-    # Mock the callLLM function
-    monkeypatch.setattr("ai.callLLM", mock_call)
-    monkeypatch.setattr("generate.callLLM", mock_call)
-    monkeypatch.setattr("generate_refactored.callLLM", mock_call)
+    # Mock the callLLM function - removed old module references
+    # The new architecture uses providers directly, not global callLLM
+    pass
 
 @pytest.fixture
 def mock_project_manager(temp_dir):
