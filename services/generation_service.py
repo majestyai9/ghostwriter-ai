@@ -77,9 +77,23 @@ class GenerationService:
 
     def _get_provider(self, provider_name: str) -> LLMProvider:
         """Retrieves a provider instance from the factory."""
+        # Get the appropriate API key based on provider
+        if provider_name == "openai":
+            api_key = settings.OPENAI_API_KEY
+        elif provider_name == "anthropic":
+            api_key = settings.ANTHROPIC_API_KEY
+        elif provider_name == "gemini":
+            api_key = settings.GEMINI_API_KEY
+        elif provider_name == "cohere":
+            api_key = settings.COHERE_API_KEY
+        elif provider_name == "openrouter":
+            api_key = settings.OPENROUTER_API_KEY
+        else:
+            api_key = None
+            
         provider_config = {
             "provider": provider_name,
-            "api_key": settings.OPENAI_API_KEY if provider_name == "openai" else settings.ANTHROPIC_API_KEY,
+            "api_key": api_key,
         }
         return self._provider_factory.create_provider(provider_name, provider_config)
 

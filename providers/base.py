@@ -543,6 +543,79 @@ class LLMProvider(ABC):
         # Basic implementation - subclasses should override for specific handling
         return ProviderError(str(error))
 
+    def _call_with_retry(self,
+                        api_call: callable,
+                        max_retries: int = 3,
+                        exponential_base: float = 2.0,
+                        jitter: bool = True,
+                        **kwargs) -> Any:
+        """Execute API call with circuit breaker protection and retry logic.
+        
+        Implements exponential backoff with optional jitter for rate limit
+        handling and transient error recovery.
+        
+        Args:
+            api_call: The API function to execute
+            max_retries: Maximum number of retry attempts
+            exponential_base: Base for exponential backoff calculation
+            jitter: Whether to add randomization to backoff delays
+            **kwargs: Arguments to pass to the API call
+            
+        Returns:
+            Result from the successful API call
+            
+        Raises:
+            ProviderError: If all retries fail or circuit breaker is open
+        """
+        # Check circuit breaker state
+        if self.circuit_breaker.get_state() == CircuitBreakerState.OPEN:
+            raise ProviderError("Circuit breaker is open, service unavailable")
+        
+        last_exception = None
+        
+        for attempt in range(max_retries + 1):
+            try:
+                # Execute with circuit breaker protection
+                result = self.circuit_breaker.call(api_call, **kwargs)
+                
+                # Reset circuit breaker on success
+                if attempt > 0:
+                    self.logger.info(f"API call succeeded after {attempt} retries")
+                
+                return result
+                
+            except Exception as e:
+                last_exception = e
+                
+                # Record failure in circuit breaker
+                self.circuit_breaker.record_failure()
+                
+                # Check if we should retry
+                if attempt >= max_retries:
+                    self.logger.error(f"All {max_retries} retries failed: {e}")
+                    break
+                
+                # Calculate backoff delay
+                delay = exponential_base ** attempt
+                if jitter:
+                    import random
+                    delay *= (0.5 + random.random())  # Add 50-150% jitter
+                
+                self.logger.warning(
+                    f"API call failed (attempt {attempt + 1}/{max_retries + 1}), "
+                    f"retrying in {delay:.2f} seconds: {e}"
+                )
+                
+                # Wait before retry
+                import time
+                time.sleep(delay)
+        
+        # All retries failed
+        if last_exception:
+            raise self._handle_error(last_exception)
+        else:
+            raise ProviderError("API call failed without exception")
+
     def get_circuit_state(self) -> CircuitBreakerState:
         """Get current circuit breaker state.
         

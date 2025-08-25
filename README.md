@@ -841,6 +841,11 @@ ghostwriter-ai/
 
 ## Recent Improvements (December 2024 - January 2025)
 
+### Critical Bug Fixes (January 2025)
+- **Added missing _call_with_retry method** - Implemented comprehensive retry logic with circuit breaker protection in base provider class
+- **Fixed API key configuration** - Ensured consistent API key handling across all providers (OpenAI, Anthropic, Gemini, Cohere, OpenRouter)
+- **Cache Manager improvements** - MemoryCache now properly accepts and uses expire parameter for TTL management
+
 ### Code Quality & Architecture
 - **Refactored generate.py** - New `BookGenerator` class eliminates code duplication
 - **Centralized retry logic** - Base `LLMProvider` class now handles all retry logic with exponential backoff
