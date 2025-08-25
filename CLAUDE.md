@@ -2,6 +2,75 @@
 
 This file provides comprehensive guidance to Claude Code when working with Python code in this repository.
 
+## 🔴 CRITICAL: Documentation & Version Control Workflow
+
+### After EVERY Important Change:
+
+1. **Update README.md immediately when:**
+   - Adding new features or providers
+   - Changing architecture or design patterns
+   - Modifying configuration options
+   - Adding new dependencies
+   - Changing file structure
+   - Fixing critical bugs
+   - Updating API interfaces
+
+2. **Documentation Update Checklist:**
+   ```bash
+   # After making significant changes:
+   1. Update relevant section in README.md
+   2. Update "Recent Improvements" section with date
+   3. If new files added: update "Complete Project Structure" 
+   4. If new config: update "Environment Variables" section
+   5. If new dependency: update "Dependencies and Requirements"
+   6. Run tests to ensure nothing broke
+   7. Create git commit with descriptive message
+   ```
+
+3. **Git Workflow - ALWAYS after important changes:**
+   ```bash
+   # Check what changed
+   git status
+   git diff
+   
+   # Add changes (be selective!)
+   git add README.md
+   git add <changed_files>
+   
+   # Commit with descriptive message
+   git commit -m "feat: add Gemini 2.5 Pro support with 2M context window
+   
+   - Updated providers/gemini_provider.py
+   - Added new config options in app_config.py
+   - Updated README.md with new provider details
+   - Added tests for Gemini integration"
+   
+   # Push to GitHub (only when explicitly requested by user)
+   git push origin main
+   ```
+
+4. **Commit Message Format:**
+   ```
+   <type>: <short description>
+   
+   - <detailed change 1>
+   - <detailed change 2>
+   - Updated README.md accordingly
+   ```
+   
+   Types: feat, fix, docs, refactor, test, perf, chore
+
+5. **README.md Update Priority:**
+   - **HIGH**: New features, breaking changes, new dependencies
+   - **MEDIUM**: Bug fixes, performance improvements, new config options
+   - **LOW**: Minor refactoring, code cleanup, typo fixes
+
+6. **Automated Reminder:**
+   After completing any significant task, ALWAYS ask yourself:
+   - Does README.md need updating?
+   - Should I create a git commit?
+   - Are all changes properly documented?
+
 ## Core Development Philosophy
 
 ### KISS (Keep It Simple, Stupid)
@@ -706,6 +775,53 @@ logger.info(
 - **Keep CLAUDE.md updated** when adding new patterns or dependencies
 - **Test your code** - No feature is complete without tests
 - **Document your decisions** - Future developers (including yourself) will thank you
+
+## 📝 POST-TASK CHECKLIST (ALWAYS EXECUTE!)
+
+After completing ANY task, ALWAYS:
+
+1. **Documentation Check:**
+   - [ ] Does README.md need updating?
+   - [ ] Are new features documented?
+   - [ ] Is "Recent Improvements" section current?
+   - [ ] Are all new files listed in project structure?
+
+2. **Version Control Check:**
+   - [ ] Run `git status` to see changes
+   - [ ] Stage relevant files with `git add`
+   - [ ] Create descriptive commit message
+   - [ ] Include what changed and why
+   - [ ] Reference issue numbers if applicable
+
+3. **Testing Check:**
+   - [ ] Run tests: `python -m pytest tests/ -v`
+   - [ ] Check linting: `python -m ruff check .`
+   - [ ] Verify no regressions
+
+4. **README.md Auto-Update Template:**
+   ```markdown
+   ## Recent Improvements (January 2025)
+   
+   ### <Feature/Fix Name>
+   - **What**: <Brief description of change>
+   - **Why**: <Reason for the change>
+   - **Impact**: <How it affects users>
+   - **Files Changed**: <List of modified files>
+   ```
+
+5. **Git Commit Template:**
+   ```bash
+   git add README.md <changed_files>
+   git commit -m "<type>: <description>
+   
+   - <change detail 1>
+   - <change detail 2>
+   - Updated README.md with <what was updated>
+   
+   Refs: #<issue_number>"
+   ```
+
+**REMINDER**: After EVERY significant change, update README.md and create a git commit!
 
 ## 🔍 Search Command Requirements
 
