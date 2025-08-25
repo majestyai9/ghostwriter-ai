@@ -25,9 +25,17 @@ if PYDANTIC_AVAILABLE:
         # API Keys
         OPENAI_API_KEY: Optional[str] = None
         ANTHROPIC_API_KEY: Optional[str] = None
+        GEMINI_API_KEY: Optional[str] = None
+        COHERE_API_KEY: Optional[str] = None
+        OPENROUTER_API_KEY: Optional[str] = None
 
         # Provider settings
         LLM_PROVIDER: str = "openai"  # Default LLM provider
+        
+        # Generation parameters
+        MAX_TOKENS: int = 1024
+        TEMPERATURE: float = 0.7
+        TOKEN_LIMIT: int = 4096
 
         # Optional settings with default values
         CACHE_TYPE: str = "in_memory"
@@ -74,9 +82,17 @@ else:
             # API Keys
             self.OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
             self.ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY')
+            self.GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+            self.COHERE_API_KEY = os.getenv('COHERE_API_KEY')
+            self.OPENROUTER_API_KEY = os.getenv('OPENROUTER_API_KEY')
 
             # Provider settings
             self.LLM_PROVIDER = os.getenv('LLM_PROVIDER', 'openai')
+            
+            # Generation parameters
+            self.MAX_TOKENS = int(os.getenv('MAX_TOKENS', '1024'))
+            self.TEMPERATURE = float(os.getenv('TEMPERATURE', '0.7'))
+            self.TOKEN_LIMIT = int(os.getenv('TOKEN_LIMIT', '4096'))
 
             # Optional settings with default values
             self.CACHE_TYPE = os.getenv('CACHE_TYPE', 'in_memory')

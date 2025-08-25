@@ -84,6 +84,14 @@ class ServiceInitializer:
             if not settings.ANTHROPIC_API_KEY:
                 raise ValueError("Anthropic API key is not configured")
             return settings.ANTHROPIC_API_KEY
+        elif settings.LLM_PROVIDER == "gemini":
+            if not settings.GEMINI_API_KEY:
+                raise ValueError("Gemini API key is not configured")
+            return settings.GEMINI_API_KEY
+        elif settings.LLM_PROVIDER == "cohere":
+            if not settings.COHERE_API_KEY:
+                raise ValueError("Cohere API key is not configured")
+            return settings.COHERE_API_KEY
         else:
             # For other providers, try to get a generic API key
             # This might need to be extended based on actual provider requirements

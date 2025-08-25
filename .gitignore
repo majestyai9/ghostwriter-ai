@@ -226,6 +226,12 @@ TODO.md
 FIXES_IMPLEMENTED.md
 primer.md
 
+# Test files and temporary scripts
+test_*.py
+generate_*.py
+book_config.json
+.serena/
+
 # Profiling
 *.prof
 *.lprof
