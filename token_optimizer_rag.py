@@ -244,28 +244,80 @@ class HybridContextManager(HybridManagerBase):
 def create_hybrid_manager(provider: Optional[LLMProvider] = None,
                          cache_manager: Optional[CacheManager] = None,
                          config: Optional[RAGConfig] = None,
-                         max_tokens: int = 128000) -> HybridContextManager:
+                         max_tokens: int = 128000,
+                         use_enhanced: bool = True) -> HybridContextManager:
     """
     Create a hybrid context manager with sensible defaults.
     
     This factory function automatically configures the manager based on
-    available dependencies and system capabilities.
+    available dependencies and system capabilities. It can create either
+    the basic hybrid manager or the enhanced RAG system with all advanced features.
     
     Args:
         provider: LLM provider for summarization
         cache_manager: Cache manager for storing results
         config: Optional RAG configuration (auto-configured if None)
         max_tokens: Maximum context window size
+        use_enhanced: Whether to use the enhanced RAG system with all features
         
     Returns:
-        Configured HybridContextManager instance
+        Configured HybridContextManager instance (or EnhancedRAGSystem wrapper)
         
     Example:
         >>> from providers.anthropic import AnthropicProvider
         >>> provider = AnthropicProvider(api_key="...")
-        >>> manager = create_hybrid_manager(provider=provider)
+        >>> # Use enhanced system with all features
+        >>> manager = create_hybrid_manager(provider=provider, use_enhanced=True)
+        >>> # Or use basic hybrid manager
+        >>> manager = create_hybrid_manager(provider=provider, use_enhanced=False)
         >>> context = manager.prepare_context(book_data, current_chapter=5)
     """
+    # Try to use enhanced system if requested
+    if use_enhanced:
+        try:
+            from rag_enhanced_system import create_enhanced_rag_system, EnhancedRAGConfig
+            
+            # Create enhanced config based on provided RAG config
+            enhanced_config = EnhancedRAGConfig()
+            if config:
+                enhanced_config.base_config = config
+            
+            # Auto-detect capabilities
+            enhanced_config.enable_hybrid_search = SENTENCE_TRANSFORMERS_AVAILABLE and FAISS_AVAILABLE
+            
+            try:
+                import spacy
+                enhanced_config.enable_knowledge_graph = True
+            except ImportError:
+                enhanced_config.enable_knowledge_graph = False
+            
+            enhanced_config.enable_incremental_indexing = FAISS_AVAILABLE
+            enhanced_config.enable_semantic_cache = SENTENCE_TRANSFORMERS_AVAILABLE
+            enhanced_config.enable_metrics = True
+            
+            # Create enhanced system
+            enhanced_system = create_enhanced_rag_system(
+                provider=provider,
+                cache_manager=cache_manager,
+                config=enhanced_config
+            )
+            
+            logging.info(
+                f"Created Enhanced RAG System with features: "
+                f"Hybrid Search={enhanced_config.enable_hybrid_search}, "
+                f"Knowledge Graph={enhanced_config.enable_knowledge_graph}, "
+                f"Incremental Indexing={enhanced_config.enable_incremental_indexing}, "
+                f"Semantic Cache={enhanced_config.enable_semantic_cache}, "
+                f"Metrics={enhanced_config.enable_metrics}"
+            )
+            
+            # Return wrapped enhanced system that's compatible with HybridContextManager interface
+            return _EnhancedRAGWrapper(enhanced_system)
+            
+        except ImportError as e:
+            logging.warning(f"Enhanced RAG system not available: {e}, falling back to basic")
+    
+    # Fallback to basic hybrid manager
     if config is None:
         # Auto-configure based on available dependencies
         if SENTENCE_TRANSFORMERS_AVAILABLE and FAISS_AVAILABLE:
@@ -298,6 +350,110 @@ def create_hybrid_manager(provider: Optional[LLMProvider] = None,
         cache_manager=cache_manager,
         max_tokens=max_tokens
     )
+
+class _EnhancedRAGWrapper:
+    """
+    Wrapper to make EnhancedRAGSystem compatible with HybridContextManager interface.
+    
+    This allows seamless integration of the enhanced system with existing code
+    that expects a HybridContextManager.
+    """
+    
+    def __init__(self, enhanced_system):
+        """Initialize wrapper with enhanced RAG system."""
+        self.enhanced_system = enhanced_system
+        self.config = enhanced_system.config.base_config
+        self.provider = enhanced_system.provider
+        self.cache_manager = enhanced_system.cache_manager
+        
+    def index_book(self, book_data: Dict[str, Any]):
+        """Index book using enhanced system."""
+        return self.enhanced_system.index_book(book_data)
+    
+    def prepare_context(self, book_data: Dict[str, Any], 
+                       current_chapter: int = 0,
+                       instructions: str = "",
+                       style: str = "",
+                       **kwargs) -> str:
+        """
+        Prepare context using enhanced RAG system.
+        
+        This method translates the HybridContextManager interface to
+        the enhanced system's retrieve_context method.
+        """
+        # Build query from instructions and current context
+        query_parts = []
+        
+        if instructions:
+            query_parts.append(f"Instructions: {instructions}")
+        
+        if style:
+            query_parts.append(f"Style: {style}")
+        
+        if current_chapter > 0 and book_data.get("chapters"):
+            chapters = book_data["chapters"]
+            if current_chapter < len(chapters):
+                chapter = chapters[current_chapter]
+                query_parts.append(f"Current chapter: {chapter.get('title', f'Chapter {current_chapter + 1}')}")
+        
+        query = "\n".join(query_parts) if query_parts else "Retrieve relevant context for book generation"
+        
+        # Index book if needed
+        if not self.enhanced_system.indexed_chapters:
+            self.enhanced_system.index_book(book_data)
+        
+        # Retrieve context
+        result = self.enhanced_system.retrieve_context(
+            query=query,
+            max_tokens=kwargs.get("max_tokens", 4000)
+        )
+        
+        # Return context string
+        return result.get("context", "")
+    
+    def get_stats(self) -> Dict[str, Any]:
+        """Get statistics from enhanced system."""
+        return self.enhanced_system.get_stats()
+    
+    def get_performance_stats(self) -> Dict[str, Any]:
+        """Get performance statistics."""
+        stats = self.enhanced_system.get_stats()
+        # Format to match expected interface
+        return {
+            "queries_processed": stats.get("queries_processed", 0),
+            "cache_hits": stats.get("cache_hits", 0),
+            "avg_latency_ms": stats.get("avg_latency_ms", 0.0),
+            "optimization": {
+                "gpu_available": CUDA_AVAILABLE,
+                "gpu_enabled": self.config.use_gpu and CUDA_AVAILABLE,
+                "enhanced_features": {
+                    "hybrid_search": self.enhanced_system.hybrid_search is not None,
+                    "knowledge_graph": self.enhanced_system.knowledge_graph is not None,
+                    "incremental_indexing": self.enhanced_system.incremental_indexer is not None,
+                    "semantic_cache": self.enhanced_system.semantic_cache is not None,
+                    "metrics": self.enhanced_system.metrics_collector is not None
+                }
+            }
+        }
+    
+    def save_state(self, path: Optional[str] = None):
+        """Save enhanced system state."""
+        self.enhanced_system.save_state(path)
+    
+    def load_state(self, path: Optional[str] = None) -> bool:
+        """Load enhanced system state."""
+        return self.enhanced_system.load_state(path)
+    
+    def optimize(self):
+        """Optimize the enhanced system."""
+        self.enhanced_system.optimize()
+    
+    # Delegate other methods to base manager for compatibility
+    def __getattr__(self, name):
+        """Delegate unknown attributes to base manager."""
+        if hasattr(self.enhanced_system.base_manager, name):
+            return getattr(self.enhanced_system.base_manager, name)
+        raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
 
 
 # Export main components

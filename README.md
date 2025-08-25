@@ -101,8 +101,15 @@ Production-ready AI-powered book writing application with support for latest LLM
 
 | File | Purpose | Key Features |
 |------|---------|--------------|  
-| **token_optimizer_rag.py** | Hybrid RAG | FAISS indexing, semantic search, smart summarization |
-| **rag_integration.py** | RAG pipeline | Document chunking, embedding, retrieval optimization |
+| **token_optimizer_rag.py** | Base hybrid RAG | FAISS indexing, semantic search, smart summarization |
+| **rag_enhanced_system.py** | Enhanced RAG orchestrator | Integrates all advanced RAG components |
+| **rag_hybrid_search.py** | Hybrid search engine | Dense+sparse retrieval, BM25, TF-IDF, RRF fusion |
+| **rag_knowledge_graph.py** | Knowledge graph builder | Entity extraction, relationship mapping, graph queries |
+| **rag_incremental_indexing.py** | Incremental indexer | Real-time updates, batch processing, delta encoding |
+| **rag_semantic_cache.py** | Semantic cache | Similarity-based caching, adaptive TTL, LRU eviction |
+| **rag_metrics.py** | Quality metrics | Performance tracking, feedback loops, A/B testing |
+| **rag_retriever.py** | Base retriever | Document chunking, embedding, retrieval |
+| **rag_integration.py** | RAG pipeline | Document processing, retrieval optimization |
 | **context_manager.py** | Context window | Token allocation, sliding window, priority management |
 | **tokenizer.py** | Token utilities | Accurate counting, chunking, truncation strategies |
 
@@ -218,14 +225,17 @@ Production-ready AI-powered book writing application with support for latest LLM
 - **Multiple cache backends** - Memory, Redis, File-based
 - **Progress tracking** - Monitor generation in real-time
 
-### Hybrid RAG System
-- **Semantic Search** - FAISS-powered vector search for relevant context retrieval
+### Advanced Hybrid RAG System (Enhanced January 2025)
+- **Hybrid Search** - Combines dense (FAISS) and sparse (BM25, TF-IDF) retrieval for superior accuracy
+- **Knowledge Graph** - Entity extraction and relationship mapping for contextual understanding
+- **Incremental Indexing** - Real-time index updates without full reindexing
+- **Semantic Caching** - Intelligent query result caching based on semantic similarity
+- **Quality Metrics** - Comprehensive RAG performance tracking with feedback loops
 - **Smart Summarization** - LLM-based chapter summaries for better context
 - **Hybrid Context** - Intelligent token allocation (40% core, 40% RAG, 20% summaries)
 - **Vector Indexing** - Automatic book content indexing with sentence-transformers
 - **Persistent Storage** - Vector stores saved in `.rag/` directory per book
-- **Backward Compatible** - Seamless fallback to legacy system when needed
-- **Configurable Modes** - Choose from disabled, basic, hybrid, or full RAG modes
+- **Configurable Modes** - Choose from disabled, basic, hybrid, full, or enhanced RAG modes
 
 ## Development Guidelines
 
@@ -262,15 +272,18 @@ Production-ready AI-powered book writing application with support for latest LLM
    - ✅ Dead letter queue for failed operations with retry mechanism (`dead_letter_queue.py`)
    - ✅ **REMOVED**: Legacy error handling code without circuit breaker pattern in `book_generator.py`
 
-2. **Advanced Token Management**
+2. **Enhanced RAG System** ✅ (January 25, 2025)
+   - ✅ Hybrid search combining dense and sparse retrieval (`rag_hybrid_search.py`)
+   - ✅ Knowledge graph for entity relationships (`rag_knowledge_graph.py`)
+   - ✅ Incremental indexing for real-time updates (`rag_incremental_indexing.py`)
+   - ✅ Semantic caching layer for RAG queries (`rag_semantic_cache.py`)
+   - ✅ Quality metrics and feedback loops (`rag_metrics.py`)
+   - ✅ **REMOVED**: Old simple RAG implementation replaced with enhanced system
+
+3. **Advanced Token Management** (Next Priority)
    - ML-based token prediction
    - Dynamic context window optimization
    - Cross-provider token pooling
-
-3. **Enhanced RAG System**
-   - Knowledge graph integration
-   - Hybrid search (dense + sparse)
-   - Active learning for relevance
 
 4. **Legacy Code Cleanup**
    - Remove deprecated functions
@@ -860,6 +873,15 @@ ghostwriter-ai/
 ```
 
 ## Recent Improvements (December 2024 - January 2025)
+
+### 🚀 Enhanced RAG System Implementation (January 25, 2025) - COMPLETED
+- **Hybrid Search System** (`rag_hybrid_search.py`) - Combines dense (FAISS) and sparse (BM25, TF-IDF) retrieval with Reciprocal Rank Fusion
+- **Knowledge Graph** (`rag_knowledge_graph.py`) - Entity extraction, relationship mapping, graph-based context retrieval
+- **Incremental Indexing** (`rag_incremental_indexing.py`) - Real-time index updates, batch processing, checkpoint recovery
+- **Semantic Caching** (`rag_semantic_cache.py`) - Query result caching based on semantic similarity, adaptive TTL
+- **Quality Metrics** (`rag_metrics.py`) - Comprehensive performance tracking, feedback loops, A/B testing support
+- **Unified System** (`rag_enhanced_system.py`) - Orchestrates all RAG components with backward compatibility
+- **Legacy Removal** - Replaced old simple RAG with advanced hybrid system
 
 ### 🚀 Enhanced Error Recovery & Resilience (January 2025) - COMPLETED
 - **Distributed tracing implemented** (`tracing.py`) - OpenTelemetry integration with span tracking, event recording, and automatic instrumentation
