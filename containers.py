@@ -39,34 +39,10 @@ class Container(containers.DeclarativeContainer):
     - Proper resource cleanup and lifecycle management
     """
     
-    # Configuration provider
+    # Configuration provider - will be populated in __init__
     config = providers.Configuration()
     
-    # Initialize with defaults from app_config
-    config.from_dict({
-        "openai_api_key": getattr(app_config.settings, "OPENAI_API_KEY", None),
-        "anthropic_api_key": getattr(app_config.settings, "ANTHROPIC_API_KEY", None),
-        "gemini_api_key": getattr(app_config.settings, "GEMINI_API_KEY", None),
-        "cache_type": getattr(app_config.settings, "CACHE_TYPE", "memory"),
-        "cache_ttl": getattr(app_config.settings, "CACHE_TTL_SECONDS", 3600),
-        "log_level": getattr(app_config.settings, "LOG_LEVEL", "INFO"),
-        "base_dir": getattr(app_config.settings, "BASE_DIR", "./projects"),
-        "enable_progress_tracking": getattr(
-            app_config.settings, "ENABLE_PROGRESS_TRACKING", False
-        ),
-        "enable_rag": getattr(app_config.settings, "ENABLE_RAG", False),
-        "provider_name": "openai",
-        "cache_max_size": 1000,
-        "cache_cleanup_interval": 300,
-        "task_backend": "thread",
-        "output_dir": "./output",
-        "project_dir": "./projects/current",
-        "token_cache_size": 2048,
-        "max_tokens": 4096,
-        "temperature": 0.7,
-    })
-    
-    # Provider Factory - Singleton for managing provider instances
+    # Provider Factory - Singleton for creating LLM providers
     provider_factory = providers.ThreadSafeSingleton(
         ProviderFactory
     )
@@ -75,19 +51,19 @@ class Container(containers.DeclarativeContainer):
     llm_provider = providers.ThreadSafeSingleton(
         providers.Callable(
             lambda factory, config_dict: factory.create_provider(
-                config_dict["provider_name"],
+                config_dict.get("provider_name", "openai"),
                 {
-                    "provider": config_dict["provider_name"],
+                    "provider": config_dict.get("provider_name", "openai"),
                     "api_key": config_dict.get(
-                        f"{config_dict['provider_name']}_api_key"
+                        f"{config_dict.get('provider_name', 'openai')}_api_key"
                     ),
                     "model": config_dict.get("model", "gpt-4"),
                     "temperature": config_dict.get("temperature", 0.7),
                     "max_tokens": config_dict.get("max_tokens", 4096),
                 }
-            ),
+            ) if config_dict and config_dict.get("provider_name") else None,
             factory=provider_factory,
-            config_dict=config.as_dict(),
+            config_dict=config,
         )
     )
     
@@ -148,6 +124,64 @@ class Container(containers.DeclarativeContainer):
         token_optimizer=token_optimizer,
         enable_rag=config.enable_rag,
     )
+    
+    def __init__(self, *args, **kwargs):
+        """Initialize container with default configuration."""
+        super().__init__(*args, **kwargs)
+        
+        # Load settings from app_config and populate configuration
+        try:
+            from app_config import settings
+        except ImportError:
+            # If app_config can't be imported (e.g., in tests), use defaults
+            class settings:
+                LLM_PROVIDER = 'openai'
+                OPENAI_API_KEY = None
+                ANTHROPIC_API_KEY = None
+                GEMINI_API_KEY = None
+                COHERE_API_KEY = None
+                OPENROUTER_API_KEY = None
+                TEMPERATURE = 0.7
+                MAX_TOKENS = 4096
+                CACHE_TYPE = 'memory'
+                CACHE_TTL_SECONDS = 3600
+                BASE_DIR = '.'
+                ENABLE_RAG = True
+                ENABLE_PROGRESS_TRACKING = False
+        
+        config_data = {
+            # Provider configuration
+            "provider_name": getattr(settings, 'LLM_PROVIDER', 'openai'),
+            "openai_api_key": getattr(settings, 'OPENAI_API_KEY', None),
+            "anthropic_api_key": getattr(settings, 'ANTHROPIC_API_KEY', None),
+            "gemini_api_key": getattr(settings, 'GEMINI_API_KEY', None),
+            "cohere_api_key": getattr(settings, 'COHERE_API_KEY', None),
+            "openrouter_api_key": getattr(settings, 'OPENROUTER_api_key', None),
+            
+            # Generation parameters
+            "model": "gpt-4",
+            "temperature": getattr(settings, 'TEMPERATURE', 0.7),
+            "max_tokens": getattr(settings, 'MAX_TOKENS', 4096),
+            
+            # Cache settings
+            "cache_type": getattr(settings, 'CACHE_TYPE', 'memory'),
+            "cache_max_size": 1000,
+            "cache_ttl": getattr(settings, 'CACHE_TTL_SECONDS', 3600),
+            "cache_cleanup_interval": 300,
+            
+            # Other settings
+            "base_dir": getattr(settings, 'BASE_DIR', '.'),
+            "output_dir": "exports",
+            "project_dir": "projects",
+            "task_backend": "thread",
+            "token_cache_size": 100,
+            "enable_rag": getattr(settings, 'ENABLE_RAG', True),
+            "enable_progress_tracking": getattr(settings, 'ENABLE_PROGRESS_TRACKING', False),
+        }
+        
+        # Update configuration with loaded data
+        # Use override() for proper initialization
+        self.config.override(config_data)
 
 
 # Global container instance management
@@ -170,6 +204,43 @@ def get_container() -> Container:
         with _container_lock:
             if _container is None:
                 _container = Container()
+                
+                # Initialize configuration with settings from app_config
+                from app_config import settings
+                
+                config_data = {
+                    # Provider configuration
+                    "provider_name": getattr(settings, 'LLM_PROVIDER', 'openai'),
+                    "openai_api_key": getattr(settings, 'OPENAI_API_KEY', None),
+                    "anthropic_api_key": getattr(settings, 'ANTHROPIC_API_KEY', None),
+                    "gemini_api_key": getattr(settings, 'GEMINI_API_KEY', None),
+                    "cohere_api_key": getattr(settings, 'COHERE_API_KEY', None),
+                    "openrouter_api_key": getattr(settings, 'OPENROUTER_API_KEY', None),
+                    
+                    # Generation parameters
+                    "model": "gpt-4",
+                    "temperature": getattr(settings, 'TEMPERATURE', 0.7),
+                    "max_tokens": getattr(settings, 'MAX_TOKENS', 4096),
+                    
+                    # Cache settings
+                    "cache_type": getattr(settings, 'CACHE_TYPE', 'memory'),
+                    "cache_max_size": 1000,
+                    "cache_ttl": getattr(settings, 'CACHE_TTL_SECONDS', 3600),
+                    "cache_cleanup_interval": 300,
+                    
+                    # Other settings
+                    "base_dir": getattr(settings, 'BASE_DIR', '.'),
+                    "output_dir": "exports", 
+                    "project_dir": "projects",
+                    "task_backend": "thread",
+                    "token_cache_size": 100,
+                    "enable_rag": getattr(settings, 'ENABLE_RAG', True),
+                    "enable_progress_tracking": getattr(settings, 'ENABLE_PROGRESS_TRACKING', False),
+                }
+                
+                # Update container configuration
+                _container.config.from_dict(config_data)
+                
                 logger.info("Dependency injection container initialized")
     
     return _container

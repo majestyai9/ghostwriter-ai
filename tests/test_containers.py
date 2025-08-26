@@ -52,9 +52,11 @@ class TestContainer:
             mock_config.settings = mock_settings
             yield mock_config
     
-    def test_container_initialization(self):
+    def test_container_initialization(self, mock_app_config):
         """Test container initialization with default config."""
-        container = Container()
+        # Use get_container() instead of direct instantiation
+        # Direct Container() instantiation doesn't work properly with dependency-injector
+        container = get_container()
         
         # Check that configuration is loaded
         config_dict = container.config()
