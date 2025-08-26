@@ -369,12 +369,18 @@ class GradioInterface:
                 return "❌ Please select a project first", "", "", ""
             
             try:
-                # Initialize generation service with selected provider
-                self.setup_generation_service(provider, model, temperature)
+                # TODO: IMPLEMENT REAL GENERATION
+                # This is currently a MOCKUP - needs actual implementation:
+                # 1. Initialize generation service with selected provider
+                # 2. Load project data
+                # 3. Start async generation with threading/asyncio
+                # 4. Connect to EventManager for real-time updates
+                # 5. Update UI progressively
                 
-                # Start generation (this would be async in production)
+                # MOCK IMPLEMENTATION - REPLACE THIS:
+                self.setup_generation_service(provider, model, temperature)
                 self.generation_active = True
-                return "🚀 Generation started!", "1 / 20", "~2 hours", "0"
+                return "🚀 Generation started! (MOCK - not actually generating)", "1 / 20", "~2 hours", "0"
                 
             except Exception as e:
                 return f"❌ Failed to start generation: {str(e)}", "", "", ""

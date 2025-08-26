@@ -1,10 +1,31 @@
 # TODO: Ghostwriter AI - Roadmap z Interfejsem Gradio
 
 ## 📊 STATUS PROJEKTU (2025-01-26)
-- **✅ UKOŃCZONE**: 58 zadań (core functionality + quality systems + Gradio start)
+- **✅ UKOŃCZONE**: 57 zadań (core functionality + quality systems)
 - **🚀 NOWA FAZA**: Implementacja Interfejsu Gradio
-- **📝 W TRAKCIE**: 1 zadanie (Gradio interface)
-- **📋 DO ZROBIENIA**: 44 zadania (Gradio) + 26 zadań (pozostałe)
+- **📝 W TRAKCIE**: Gradio UI skeleton (struktura bez funkcjonalności)
+- **📋 DO ZROBIENIA**: 43.5 zadania (Gradio) + 26 zadań (pozostałe)
+
+---
+
+## ⚠️ WAŻNE: STATUS IMPLEMENTACJI GRADIO
+
+### Co NAPRAWDĘ działa (2025-01-26):
+- ✅ **Struktura UI** - wszystkie 7 zakładek utworzone
+- ✅ **Project management** - podstawowe funkcje (lista, tworzenie)
+- ✅ **Dynamic dropdowns** - wybór modeli per provider
+- ❌ **Generation** - tylko mockup, brak rzeczywistego generowania
+- ❌ **Characters** - tylko UI, brak integracji z SQLite
+- ❌ **Styles** - tylko UI, brak ładowania stylów
+- ❌ **Analytics** - tylko UI, brak rzeczywistych metryk
+- ❌ **Export** - tylko UI, brak funkcjonalności
+- ❌ **Settings** - tylko UI, brak zapisu
+
+### Rzeczywiste metryki:
+```
+RZECZYWISTY POSTĘP:   1.5/45 tasks (3%)  ░░░░░░░░░░
+UI SKELETON:          35/45 tasks (78%)  ████████░░
+```
 
 ---
 
@@ -31,7 +52,7 @@
 ### Nowe pliki do utworzenia:
 ```
 ghostwriter-ai/
-├── gradio_app.py              # Główna aplikacja Gradio ✅ CREATED
+├── gradio_app.py              # Główna aplikacja Gradio ✅ CREATED (UI skeleton)
 ├── gradio_components.py       # Reużywalne komponenty UI
 ├── gradio_handlers.py         # Handlery eventów i akcji
 ├── gradio_state.py           # Zarządzanie stanem sesji
@@ -55,12 +76,7 @@ ghostwriter-ai/
 - [x] Funkcja `launch_gradio_app()` z konfiguracją
 - [ ] Integracja z `main.py` (opcja `--gradio`)
 
-**Status**: ✅ ZAIMPLEMENTOWANE
-- Utworzono kompletny interfejs z 7 zakładkami
-- Zintegrowano z DI container
-- Dodano wszystkie podstawowe komponenty UI
-- Custom CSS dla lepszego wyglądu
-- Event handlers i state management
+**Status**: ✅ STRUKTURA UI UTWORZONA (bez pełnej funkcjonalności)
 
 ### G1.2 Implementacja gradio_state.py
 **Plik**: `gradio_state.py`
@@ -86,27 +102,34 @@ ghostwriter-ai/
 
 ## 🎨 FAZA G2: ZARZĄDZANIE PROJEKTAMI (Tydzień 1, Dni 3-4)
 
-### G2.1 Zakładka Projects - Lista projektów
+### G2.1 Zakładka Projects - Lista projektów ⚠️ PARTIAL
 **Komponenty**:
-- [x] `gr.Dataframe` z kolumnami: ID, Title, Status, Created, Modified, Words, Chapters
-- [x] Przyciski: New, Open, Delete, Archive, Export
+- [x] `gr.Dataframe` z kolumnami (UI ONLY)
+- [x] Przyciski: New, Open, Delete, Archive, Export (UI ONLY)
 - [ ] Filtry: Status (draft/completed), Date range
 - [ ] Sortowanie po kolumnach
 - [ ] Pagination dla wielu projektów
 
-### G2.2 Modal tworzenia projektu
+**Działające funkcje**:
+- ✅ `refresh_projects()` - pobiera listę z ProjectManager
+- ✅ `show_new_project_form()` - toggle formularza
+- ✅ `create_new_project()` - tworzy projekt
+
+### G2.2 Modal tworzenia projektu ⚠️ PARTIAL
 **Komponenty**:
-- [x] `gr.Textbox` - tytuł książki
-- [x] `gr.Dropdown` - język (15+ języków)
-- [x] `gr.Dropdown` - styl (15+ stylów)
-- [x] `gr.Textbox` - opis/instrukcje
-- [x] `gr.Slider` - liczba rozdziałów (5-100)
-- [x] Walidacja formularza
+- [x] `gr.Textbox` - tytuł książki (UI)
+- [x] `gr.Dropdown` - język (UI)
+- [x] `gr.Dropdown` - styl (UI)
+- [x] `gr.Textbox` - opis/instrukcje (UI)
+- [x] `gr.Slider` - liczba rozdziałów (UI)
+- [x] Walidacja formularza (BASIC)
 - [ ] Preview metadanych
 
-### G2.3 Panel szczegółów projektu
+**Status**: ✅ Formularz działa, tworzy projekty
+
+### G2.3 Panel szczegółów projektu ❌ UI ONLY
 **Komponenty**:
-- [x] Metadata viewer (JSON)
+- [x] Metadata viewer (JSON) - UI ONLY
 - [ ] Statistics dashboard
 - [ ] File browser (content/, exports/)
 - [ ] Quick actions (Resume, Export, Clone)
@@ -116,81 +139,64 @@ ghostwriter-ai/
 
 ## 📝 FAZA G3: GENEROWANIE KSIĄŻEK (Tydzień 1, Dni 5-7)
 
-### G3.1 Panel kontrolny generowania
+### G3.1 Panel kontrolny generowania ❌ UI ONLY
 **Komponenty**:
-- [x] **Parametry książki**:
+- [x] **Parametry książki** (UI CREATED, NO BACKEND):
   - `gr.Textbox` - tytuł
-  - `gr.Textbox` - instrukcje (multiline, 500+ chars)
+  - `gr.Textbox` - instrukcje
   - `gr.Dropdown` - styl pisania
   - `gr.Dropdown` - język
   - `gr.Slider` - liczba rozdziałów
   - `gr.Dropdown` - provider LLM
-  - `gr.Dropdown` - model (dynamiczny per provider)
+  - `gr.Dropdown` - model (✅ dynamic per provider)
 
-- [x] **Zaawansowane opcje** (Accordion):
-  - Temperature (0.0-1.0)
-  - Max tokens per chapter
-  - Enable RAG (checkbox)
-  - Enable quality validators (checkboxes)
-  - Custom prompts (optional)
+- [x] **Zaawansowane opcje** (UI ONLY)
 
-### G3.2 Panel monitoringu real-time
+### G3.2 Panel monitoringu real-time ❌ UI ONLY
 **Komponenty**:
-- [x] `gr.Progress` - główny progress bar
-- [x] `gr.Textbox` - live logs (auto-scroll)
+- [x] `gr.Progress` - UI ONLY
+- [x] `gr.Textbox` - live logs - UI ONLY
 - [ ] `gr.Plot` - wykres postępu (Plotly)
-- [x] Token usage meter (gauge)
-- [x] ETA calculator
-- [ ] Chapter tree view (collapsible)
+- [x] Token usage meter - UI ONLY
+- [x] ETA calculator - UI ONLY
+- [ ] Chapter tree view
 - [ ] Event stream viewer
 
-### G3.3 Kontrola generowania
+### G3.3 Kontrola generowania ❌ MOCK ONLY
 **Funkcjonalności**:
-- [x] Start generation (async)
-- [x] Pause/Resume
-- [x] Stop (graceful shutdown)
-- [x] Regenerate chapter
+- [x] Start generation - RETURNS MOCK MESSAGE
+- [x] Pause/Resume - UI ONLY
+- [x] Stop - UI ONLY
+- [x] Regenerate chapter - UI ONLY
 - [ ] Skip chapter
 - [ ] Emergency stop
 - [ ] Auto-save checkpoints
+
+**Działające funkcje**:
+- ⚠️ `start_generation()` - tylko zwraca "Generation started!"
+- ✅ `update_model_choices()` - dynamiczna lista modeli
 
 ---
 
 ## 👥 FAZA G4: ZARZĄDZANIE POSTACIAMI (Tydzień 2, Dni 1-2)
 
-### G4.1 Panel listy postaci
+### G4.1 Panel listy postaci ❌ UI ONLY
 **Komponenty**:
-- [x] `gr.Accordion` - lista postaci (expandable cards)
-- [x] Character cards z podstawowymi danymi
-- [ ] OCEAN traits (mini radar chart)
-- [ ] Quick actions (Edit, Delete, Clone)
-- [ ] Filtry: Role (protagonist/antagonist/supporting)
-- [ ] Search box
+- [x] Lista postaci - UI ONLY
+- [x] Character cards - UI ONLY
+- [ ] OCEAN traits chart
+- [ ] Quick actions
+- [ ] Filtry i search
 
-### G4.2 Edytor postaci
+### G4.2 Edytor postaci ❌ UI ONLY
 **Komponenty**:
-- [x] **Podstawowe dane**:
-  - `gr.Textbox` - imię i nazwisko
-  - `gr.Dropdown` - rola
-  - `gr.Textbox` - opis fizyczny
-  - `gr.Textbox` - backstory
+- [x] Podstawowe dane - UI ONLY
+- [x] OCEAN sliders - UI ONLY
+- [x] Relationships matrix - UI ONLY
+- [ ] Dialog patterns
+- [ ] Character arc
 
-- [x] **Personality (OCEAN model)**:
-  - 5x `gr.Slider` dla traits
-  - [ ] Radar chart preview
-  - [ ] Personality description generator
-
-- [x] **Relationships matrix**:
-  - `gr.Dataframe` - relacje z innymi
-  - Relationship strength (0-1)
-  - Relationship type dropdown
-
-- [ ] **Dialog patterns**:
-  - Speech patterns editor
-  - Przykładowe cytaty
-  - Voice synthesis params
-
-### G4.3 Character tracking integration
+### G4.3 Character tracking integration ❌ NOT STARTED
 **Zadania**:
 - [ ] Sync z `character_tracker.py` (SQLite)
 - [ ] Import/Export postaci (JSON)
@@ -202,225 +208,105 @@ ghostwriter-ai/
 
 ## 🎨 FAZA G5: STYLE I SZABLONY (Tydzień 2, Dni 3-4)
 
-### G5.1 Galeria stylów
+### G5.1 Galeria stylów ❌ UI ONLY
 **Komponenty**:
-- [x] Grid layout z kartami stylów
-- [x] Preview każdego stylu (przykładowy tekst)
-- [x] Metadata: rating, genre, tone
+- [x] Grid layout - UI ONLY
+- [x] Preview - UI ONLY
+- [x] Metadata - UI ONLY
 - [ ] Usage statistics
 - [ ] Favorite/Recently used
 
-### G5.2 Edytor własnych stylów
-**Komponenty**:
-- [x] Template builder (podstawowy)
-- [ ] Prompt customization
-- [ ] Preview z tokenami
-
-### G5.3 Style management
-**Zadania**:
-- [ ] Import/Export stylów
-- [ ] Share styles (community)
-- [ ] A/B testing stylów
-- [ ] Style recommendations
-- [ ] Version control dla stylów
+### G5.2 Edytor własnych stylów ❌ UI ONLY
+### G5.3 Style management ❌ NOT STARTED
 
 ---
 
 ## 📊 FAZA G6: MONITORING I ANALITYKA (Tydzień 2, Dni 5-7)
 
-### G6.1 Dashboard główny
+### G6.1 Dashboard główny ❌ UI ONLY
 **Komponenty**:
-- [x] **Real-time metrics**:
-  - Current operation status
-  - Tokens used (text)
-  - Generation speed (words/min)
-  - API costs estimator
-  - [ ] Error rate
+- [x] Real-time metrics - UI ONLY
+- [x] Quality metrics - UI ONLY
+- [ ] Error rate tracking
 
-- [x] **Quality metrics**:
-  - Narrative consistency score
-  - Character consistency score
-  - Plot originality score
-  - Dialog quality score
-  - [ ] Chapter length compliance
-
-### G6.2 Szczegółowa analityka
-**Komponenty**:
-- [ ] **Performance charts** (Plotly):
-  - Generation timeline
-  - Token usage over time
-  - Provider comparison
-  - Cost analysis
-
-- [ ] **Content analysis**:
-  - Word frequency
-  - Sentiment analysis
-  - Character appearances
-  - Scene locations
-
-### G6.3 Raporty i eksport
-**Zadania**:
-- [ ] Generate PDF reports
-- [ ] Export metrics to CSV
-- [ ] Email notifications
-- [ ] Webhook integration
-- [ ] Scheduled reports
+### G6.2 Szczegółowa analityka ❌ NOT STARTED
+### G6.3 Raporty i eksport ❌ NOT STARTED
 
 ---
 
 ## 📤 FAZA G7: EKSPORT I PUBLIKACJA (Tydzień 3, Dni 1-2)
 
-### G7.1 Panel eksportu
+### G7.1 Panel eksportu ❌ UI ONLY
 **Komponenty**:
-- [x] **Format selection**:
-  - Checkboxes: EPUB, PDF, DOCX, HTML, TXT
-  - Format-specific options
-  - Quality settings
+- [x] Format selection - UI ONLY
+- [x] Metadata editor - UI ONLY
 
-- [x] **Metadata editor**:
-  - Author, publisher
-  - ISBN, copyright
-  - Cover image upload
-  - Description, keywords
-
-### G7.2 Preview i walidacja
-**Komponenty**:
-- [x] Format preview (iframe placeholder)
-- [ ] Validation results
-- [ ] File size estimation
-- [ ] Compatibility checker
-- [ ] TOC generator
-
-### G7.3 Batch operations
-**Zadania**:
-- [ ] Export multiple projects
-- [ ] Bulk metadata update
-- [ ] Template-based export
-- [ ] Cloud upload (S3, Drive)
-- [ ] Publishing integration
+### G7.2 Preview i walidacja ❌ UI ONLY
+### G7.3 Batch operations ❌ NOT STARTED
 
 ---
 
 ## ⚙️ FAZA G8: USTAWIENIA I KONFIGURACJA (Tydzień 3, Dni 3-4)
 
-### G8.1 Provider configuration
+### G8.1 Provider configuration ❌ UI ONLY
 **Komponenty**:
-- [x] API keys manager (secure)
-- [x] Provider preferences
-- [x] Model selection
+- [x] API keys manager - UI ONLY (no save)
+- [x] Provider preferences - UI ONLY
+- [x] Model selection - UI ONLY
 - [ ] Rate limit settings
 - [ ] Fallback configuration
 
-### G8.2 Application settings
-**Komponenty**:
-- [x] **General**:
-  - Theme (dark/light)
-  - Language
-  - Auto-save interval
-  - Debug mode
-
-- [x] **Advanced**:
-  - Cache settings
-  - RAG configuration
-  - [ ] Token budgets
-  - Logging level
-
-### G8.3 Import/Export settings
-**Zadania**:
-- [ ] Backup configuration
-- [ ] Restore settings
-- [ ] Profile management
-- [ ] Reset to defaults
-- [ ] Migration tools
+### G8.2 Application settings ❌ UI ONLY
+### G8.3 Import/Export settings ❌ NOT STARTED
 
 ---
 
 ## 🔧 FAZA G9: INTEGRACJA I OPTYMALIZACJA (Tydzień 3, Dni 5-7)
 
 ### G9.1 Integracja z istniejącym kodem
-**Zadania**:
+**Zadania**: ALL PENDING
 - [ ] Refactor `main.py` dla opcji `--gradio`
 - [ ] Update `containers.py` z Gradio dependencies
 - [ ] Extend EventManager dla UI events
 - [ ] Add Gradio-specific loggers
 - [ ] Update error handlers dla UI
 
-### G9.2 Performance optimization
-**Zadania**:
-- [ ] Implement caching dla UI
-- [ ] Optimize database queries
-- [ ] Add lazy loading
-- [ ] Implement virtual scrolling
-- [ ] Background task queue
-
-### G9.3 Testing i dokumentacja
-**Zadania**:
-- [ ] Unit tests dla handlers
-- [ ] Integration tests dla UI flows
-- [ ] E2E tests z Selenium
-- [ ] User documentation
-- [ ] Video tutorials
+### G9.2 Performance optimization ❌ NOT STARTED
+### G9.3 Testing i dokumentacja ❌ NOT STARTED
 
 ---
 
 ## 🚦 FAZA G10: POLISH I DEPLOYMENT (Tydzień 4)
 
-### G10.1 UI/UX improvements
-**Zadania**:
-- [ ] Responsive design
-- [ ] Mobile optimization
-- [ ] Accessibility (ARIA)
-- [ ] Keyboard shortcuts
-- [ ] Tooltips i help
-
-### G10.2 Security hardening
-**Zadania**:
-- [ ] Input sanitization
-- [ ] Rate limiting
-- [ ] CORS configuration
-- [ ] Authentication (optional)
-- [ ] API key encryption
-
-### G10.3 Deployment preparation
-**Zadania**:
-- [ ] Docker configuration
-- [ ] Nginx reverse proxy
-- [ ] SSL certificates
-- [ ] Monitoring setup
-- [ ] Backup strategy
+ALL TASKS PENDING
 
 ---
 
-## 📋 IMPLEMENTACJA - CO ZROBIONE
+## 📋 IMPLEMENTACJA - RZECZYWISTY STATUS
 
-### ✅ Dzień 1 (2025-01-26): COMPLETED
+### ✅ Co NAPRAWDĘ działa (2025-01-26):
 ```python
-# 1. ✅ Utworzenie gradio_app.py - DONE
-# 2. ✅ Basic UI z zakładkami - DONE
-# 3. ✅ Integracja z containers.py - DONE
-# 4. ✅ Test uruchomienia - READY TO TEST
+# gradio_app.py - DZIAŁAJĄCE FUNKCJE:
+- GradioInterface.__init__() - inicjalizacja DI
+- create_interface() - struktura UI (7 tabs)
+- refresh_projects() - pobiera projekty z ProjectManager
+- show_new_project_form() - toggle formularza
+- create_new_project() - tworzy projekt w bazie
+- update_model_choices() - dynamiczne modele per provider
+- get_project_choices() - lista projektów dla dropdown
+- get_custom_css() - stylizacja
 ```
 
-**Zaimplementowane funkcjonalności w gradio_app.py:**
-- ✅ Klasa GradioInterface z pełną strukturą
-- ✅ 7 głównych zakładek (Projects, Generate, Characters, Styles, Analytics, Export, Settings)
-- ✅ Integracja z DI container
-- ✅ Event system integration
-- ✅ Custom CSS styling
-- ✅ Project management (lista, tworzenie, szczegóły)
-- ✅ Generation controls (parametry, progress, logs)
-- ✅ Character editor z OCEAN model
-- ✅ Style gallery
-- ✅ Analytics dashboard
-- ✅ Export system
-- ✅ Settings (API keys, general, advanced)
-
-### 🔄 Następne kroki:
-1. Dodanie zależności Gradio do requirements.txt
-2. Integracja z main.py (opcja --gradio)
-3. Utworzenie gradio_handlers.py
-4. Implementacja gradio_state.py
-5. Testing i debugging
+### ❌ Co NIE działa (tylko UI mockup):
+```python
+# WSZYSTKIE POZOSTAŁE FUNKCJE TO PLACEHOLDER:
+- start_generation() - zwraca mock "Generation started!"
+- Cała zakładka Characters - brak integracji z SQLite
+- Cała zakładka Styles - brak ładowania stylów
+- Cała zakładka Analytics - brak metryk
+- Cała zakładka Export - brak eksportu
+- Cała zakładka Settings - brak zapisu
+```
 
 ---
 
@@ -435,19 +321,7 @@ python gradio_app.py
 python gradio_app.py --host 0.0.0.0 --port 7860 --share --debug
 
 # Production (gdy będzie zintegrowane)
-python main.py --gradio
-```
-
-### Testing:
-```bash
-# Unit tests (do implementacji)
-pytest tests/gradio/
-
-# Integration tests  
-pytest tests/gradio/integration/
-
-# E2E tests
-pytest tests/gradio/e2e/ --browser chrome
+python main.py --gradio  # NIE DZIAŁA JESZCZE
 ```
 
 ---
@@ -455,7 +329,7 @@ pytest tests/gradio/e2e/ --browser chrome
 ## 📦 WYMAGANE DEPENDENCJE
 
 ```txt
-# Dodać do requirements.txt
+# DO DODANIA do requirements.txt:
 gradio==4.19.0
 gradio-client==0.10.0
 pandas>=2.0.0
@@ -468,60 +342,62 @@ websockets>=12.0
 
 ---
 
-## ✅ KRYTERIA SUKCESU
-
-1. **Funkcjonalność**: 100% features z CLI dostępne w UI
-2. **Performance**: <2s response time dla wszystkich operacji
-3. **UX**: Intuicyjny interfejs bez potrzeby dokumentacji
-4. **Stabilność**: 0 crashów podczas normalnego użycia
-5. **Skalowalność**: Obsługa 100+ projektów bez degradacji
-6. **Kompatybilność**: Działa na Chrome, Firefox, Safari, Edge
-
----
-
-## 🎯 PRIORYTETY IMPLEMENTACJI
-
-1. **KRYTYCZNE** (Tydzień 1): ⚠️ W TRAKCIE
-   - ✅ Podstawowy UI
-   - ⚠️ Zarządzanie projektami (częściowo)
-   - ⚠️ Generowanie książek (częściowo)
-
-2. **WAŻNE** (Tydzień 2):
-   - Character management
-   - Style system
-   - Monitoring
-
-3. **NICE-TO-HAVE** (Tydzień 3-4):
-   - Advanced analytics
-   - Batch operations
-   - Community features
-
----
-
-## 📊 METRYKI POSTĘPU
+## 📊 RZECZYWISTE METRYKI POSTĘPU
 
 ```
-GRADIO INTERFACE:      7/45 tasks (15%)  ██░░░░░░░░
-├─ Podstawy:          6/6  (100%) ██████████
-├─ Projekty:          3/8  (37%)  ████░░░░░░
-├─ Generowanie:       5/9  (55%)  █████░░░░░
-├─ Postacie:          3/7  (42%)  ████░░░░░░
-├─ Style:             2/6  (33%)  ███░░░░░░░
-├─ Monitoring:        2/5  (40%)  ████░░░░░░
-└─ Finalizacja:       0/4  (0%)   ░░░░░░░░░░
+GRADIO INTERFACE:      1.5/45 tasks (3.3%)  ░░░░░░░░░░
+├─ Podstawy:          6/6   (100%) ██████████  ✅
+├─ Projekty:          2/8   (25%)  ███░░░░░░░  ⚠️
+├─ Generowanie:       0/9   (0%)   ░░░░░░░░░░  ❌ UI ONLY
+├─ Postacie:          0/7   (0%)   ░░░░░░░░░░  ❌ UI ONLY
+├─ Style:             0/6   (0%)   ░░░░░░░░░░  ❌ UI ONLY
+├─ Monitoring:        0/5   (0%)   ░░░░░░░░░░  ❌ UI ONLY
+├─ Export:            0/7   (0%)   ░░░░░░░░░░  ❌ UI ONLY
+└─ Settings:          0/7   (0%)   ░░░░░░░░░░  ❌ UI ONLY
+
+UI SKELETON:          35/45 (78%)  ████████░░  (struktura bez logiki)
+BACKEND INTEGRATION:  1.5/45 (3%)  ░░░░░░░░░░  (rzeczywista funkcjonalność)
 ```
 
 ---
 
-## 🔄 KOLEJNE KROKI (IMMEDIATE)
+## 🔄 KOLEJNE KROKI (PRIORYTET)
 
-1. **Update requirements.txt** - dodać zależności Gradio
-2. **Integracja z main.py** - opcja --gradio
-3. **gradio_handlers.py** - wydzielić logikę handlerów
-4. **gradio_state.py** - zarządzanie stanem
-5. **Testing** - sprawdzić działanie interfejsu
+### NATYCHMIAST (Dzień 2):
+1. **Add dependencies** - dodać Gradio do requirements.txt
+2. **Test UI** - sprawdzić czy UI się uruchamia
+3. **Fix mock functions** - oznaczyć TODO w kodzie
+
+### PILNE (Dni 3-4):
+4. **gradio_handlers.py** - wydzielić rzeczywiste handlery
+5. **gradio_state.py** - zarządzanie stanem
+6. **Real generation** - podłączyć GenerationService
+
+### WAŻNE (Tydzień 2):
+7. **Character integration** - połączyć z character_tracker.py
+8. **Style loading** - załadować rzeczywiste style
+9. **Real metrics** - podłączyć EventManager
+
+---
+
+## ⚠️ UWAGI DLA DEVELOPERA
+
+### Miejsca wymagające natychmiastowej uwagi:
+1. **gradio_app.py:367** - `start_generation()` - tylko mockup!
+2. **gradio_app.py:400+** - Characters tab - brak backend
+3. **gradio_app.py:500+** - Styles tab - brak ładowania
+4. **gradio_app.py:600+** - Analytics - brak metryk
+5. **gradio_app.py:700+** - Export - brak funkcjonalności
+6. **gradio_app.py:800+** - Settings - brak zapisu
+
+### Co działa i można testować:
+- ✅ Tworzenie nowych projektów
+- ✅ Lista projektów
+- ✅ Zmiana modeli per provider
+- ✅ UI wszystkich zakładek (wygląd)
 
 ---
 
 *Last Updated: 2025-01-26 by Python AI Engineer*
-*Status: Gradio interface podstawa zaimplementowana, ready for testing*
+*Status: UI skeleton complete (78%), backend integration minimal (3%)*
+*HONEST ASSESSMENT: Most functionality is UI-only mockup*
