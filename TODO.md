@@ -2,9 +2,9 @@
 
 ## 📊 CURRENT STATUS (2025-01-26)
 
-**✅ COMPLETED: 43 tasks** (+5 from previous update)
+**✅ COMPLETED: 50 tasks** (+7 critical book generation fixes)
 **🔄 IN PROGRESS: 0 tasks**  
-**📝 TODO: 26 tasks** (-5 completed)
+**📝 TODO: 26 tasks**
 
 ---
 
@@ -83,6 +83,42 @@
 
 ---
 
+## 🚨 FAZA 0: POPRAWKI KRYTYCZNE GENERATORA (NATYCHMIAST)
+
+### Pliki do utworzenia:
+1. **narrative_consistency.py** - Engine spójności narracyjnej
+   - Klasa NarrativeConsistencyEngine
+   - Metody: validate_chapter_start(), remove_ai_artifacts(), track_plot_points()
+   
+2. **character_tracker.py** - System śledzenia postaci
+   - Klasa CharacterDatabase z SQLite backend
+   - Metody: register_character(), update_character(), validate_consistency()
+   
+3. **chapter_validator.py** - Walidator długości i jakości rozdziałów
+   - Klasa ChapterValidator
+   - Metody: enforce_minimum_length(), expand_chapter(), validate_quality()
+   
+4. **dialogue_enhancer.py** - System poprawy dialogów
+   - Klasa DialogueEnhancer
+   - Metody: personalize_speech(), remove_cliches(), generate_unique_phrases()
+   
+5. **plot_originality.py** - Walidator oryginalności fabuły
+   - Klasa PlotOriginalityValidator
+   - Metody: detect_repetitions(), suggest_alternatives(), validate_uniqueness()
+
+### Modyfikacje istniejących plików:
+1. **book_generator.py** - Integracja nowych systemów
+2. **generation_service.py** - Dodanie hooków dla walidatorów
+3. **prompts.yaml** - Nowe prompty wymuszające jakość
+
+### Metryki sukcesu (cele po implementacji):
+- ✅ Książki 100,000+ słów (obecnie 63k)
+- ✅ Rozdziały 6,000+ słów każdy (obecnie 3-4k)
+- ✅ 0% technicznych artefaktów w tekście
+- ✅ 100% spójność imion i cech postaci
+- ✅ <10% powtarzających się motywów fabularnych
+- ✅ Ocena jakości: 8+/10 (obecnie 5/10)
+
 ## 🎯 FAZA 1: INFRASTRUKTURA KRYTYCZNA (Tydzień 1-2)
 
 ### 1.1 Rozszerzone Error Recovery & Resilience ✅ COMPLETED (2025-01-25)
@@ -93,7 +129,37 @@
 - [x] Dead letter queue dla nieudanych operacji (`dead_letter_queue.py`)
 - [x] **USUNIĘTO**: Stary kod error handling bez circuit breaker z `book_generator.py`
 
-### 1.2 Zaawansowane Zarządzanie Tokenami
+### 1.2 Krytyczne Poprawki Generatora Książek ✅ COMPLETED (2025-01-26)
+- [x] **Narrative Consistency Engine** - System zapewniający spójność narracyjną (`narrative_consistency.py`)
+  - Usunięcie technicznych artefaktów ("Here is Chapter X...")
+  - Śledzenie imion i cech postaci przez całą książkę
+  - Walidacja ciągłości fabularnej między rozdziałami
+- [x] **Character Development Tracker** - System rozwoju postaci (`character_tracker.py`)
+  - Baza danych SQLite dla cech postaci (imię, wygląd, motywacje, relacje)
+  - Ewolucja postaci w czasie (character arcs)
+  - Zapobieganie zmianom płci/imion postaci
+- [x] **Chapter Length Enforcer** - Wymuszanie długości rozdziałów (`chapter_validator.py`)
+  - Minimum 6000 słów na rozdział (z automatyczną regeneracją)
+  - System promptów wymuszających dłuższe, bardziej szczegółowe sceny
+  - Automatyczne rozszerzanie zbyt krótkich rozdziałów
+- [x] **Dialogue Quality Enhancer** - Poprawa dialogów (`dialogue_enhancer.py`)
+  - Bank unikalnych, niepowtarzalnych fraz dla każdej postaci
+  - Eliminacja sztampowych kwestii szpiegowskich
+  - Personalizacja stylu mówienia każdej postaci
+- [x] **Plot Originality Validator** - Walidator oryginalności fabuły (`plot_originality.py`)
+  - Detekcja powtarzających się motywów
+  - Sugestie alternatywnych rozwiązań fabularnych
+  - Bank unikalnych zwrotów akcji
+- [x] **Emotional Depth Injector** - System głębi emocjonalnej (zintegrowany w `chapter_validator.py`)
+  - Wewnętrzne monologi postaci
+  - Moralne dylematy i konflikty wewnętrzne
+  - Relacje międzyludzkie wykraczające poza powierzchowne interakcje
+- [x] **Technical Details Consistency** - Spójność szczegółów technicznych (zintegrowany w systemach)
+  - Baza danych broni, gadżetów, lokacji
+  - Weryfikacja spójności szczegółów technicznych
+  - Realistyczne opisy taktyczne i szpiegowskie
+
+### 1.3 Zaawansowane Zarządzanie Tokenami
 - [ ] Dynamiczna alokacja tokenów na podstawie złożoności rozdziału
 - [ ] Modele predykcji użycia tokenów (ML-based)
 - [ ] Token pooling dla równoległego generowania

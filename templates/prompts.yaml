@@ -78,12 +78,34 @@ chapter:
     Table of contents context:
     {toc_context}
     
+    {continuity_context}
+    
+    {quality_requirements}
+    
+    {originality_requirements}
+    
+    CRITICAL REQUIREMENTS:
+    - MINIMUM 6000 WORDS per chapter (this is non-negotiable)
+    - Generate complete, fully-developed chapters with rich detail
+    - Include substantial dialogue (20-70% of content)
+    - Create immersive sensory descriptions
+    - Deep emotional character moments
+    - Varied sentence structure and pacing
+    - Multiple distinct scenes or scene segments
+    - Unique character voice in dialogue
+    - Avoid clichés and overused plot devices
+    - Start directly with narrative content (no meta-commentary)
+    
     Write comprehensive, engaging content that:
-    - Thoroughly explores the topics
-    - Maintains consistency with the book's theme
-    - Provides valuable insights
-    - Uses clear, accessible language
-    - Is approximately 2000-3000 words
+    - Thoroughly explores the topics in cinematic detail
+    - Maintains perfect consistency with established characters and plot
+    - Shows rather than tells emotions and character traits
+    - Creates vivid, immersive scenes with specific details
+    - Develops character arcs and relationships
+    - Builds tension and includes a hook/cliffhanger ending
+    - Uses diverse, sophisticated vocabulary
+    
+    TARGET OUTPUT: 16000 tokens (approximately 6000-8000 words)
 
 section_topics:
   template: |
@@ -109,8 +131,23 @@ section:
     Section topics: {topics}
     Chapter topics: {chapter_topics}
     
+    {continuity_context}
+    
+    {quality_requirements}
+    
+    CRITICAL REQUIREMENTS:
+    - MINIMUM 2000 WORDS per section
+    - Rich, detailed narrative with full scene development
+    - Include character dialogue and interactions
+    - Sensory details and atmospheric descriptions
+    - Emotional depth and character thoughts
+    - Maintain consistency with established plot and characters
+    
     Write detailed content that:
-    - Focuses on the specific section topics
-    - Connects to the broader chapter themes
-    - Provides practical examples where appropriate
-    - Is approximately 800-1200 words
+    - Fully develops the specific section topics
+    - Creates immersive, cinematic scenes
+    - Shows character development through actions and dialogue
+    - Connects seamlessly to the broader chapter themes
+    - Provides vivid, specific details (not generic descriptions)
+    
+    TARGET OUTPUT: 5000 tokens (approximately 2000-2500 words)

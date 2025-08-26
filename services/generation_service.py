@@ -139,6 +139,9 @@ class GenerationService:
         book: Dict[str, Any],
         chapter_number: int,
         book_dir: Optional[str] = None,
+        continuity_context: Optional[str] = None,
+        quality_requirements: Optional[str] = None,
+        originality_requirements: Optional[str] = None,
         **provider_kwargs: Any,
     ) -> str:
         """
@@ -149,6 +152,9 @@ class GenerationService:
             book: The book data.
             chapter_number: The number of the chapter to generate.
             book_dir: Optional book directory for RAG vector store.
+            continuity_context: Optional narrative continuity context.
+            quality_requirements: Optional quality enforcement requirements.
+            originality_requirements: Optional plot originality requirements.
             **provider_kwargs: Additional keyword arguments for the provider.
 
         Returns:
@@ -174,9 +180,36 @@ class GenerationService:
             # RAG is disabled, prepare minimal context
             context = [
                 {"role": "system", "content": "You are a professional writer creating a book."},
-                {"role": "user", "content": prompt if prompt else "Continue writing the book."}
             ]
             self.logger.debug("Using minimal context without RAG")
+
+        # Add quality enhancement contexts
+        enhancement_prompts = []
+        
+        if continuity_context:
+            enhancement_prompts.append(f"NARRATIVE CONTINUITY:\n{continuity_context}")
+        
+        if quality_requirements:
+            enhancement_prompts.append(f"QUALITY STANDARDS:\n{quality_requirements}")
+        
+        if originality_requirements:
+            enhancement_prompts.append(f"ORIGINALITY GUIDELINES:\n{originality_requirements}")
+        
+        # Add enhancement prompts to context
+        if enhancement_prompts:
+            enhancement_message = "\n\n".join(enhancement_prompts)
+            context.append({
+                "role": "system",
+                "content": f"IMPORTANT REQUIREMENTS FOR THIS CHAPTER:\n\n{enhancement_message}"
+            })
+        
+        # Add the chapter generation prompt
+        if 0 <= chapter_number < len(book.get("toc", {}).get("chapters", [])):
+            chapter = book["toc"]["chapters"][chapter_number]
+            prompt = f"Generate Chapter {chapter_number + 1}: {chapter.get('title', 'Untitled')}"
+            if 'topics' in chapter:
+                prompt += f"\n\nTopics to cover: {chapter['topics']}"
+            context.append({"role": "user", "content": prompt})
 
         provider = self._get_provider(provider_name)
 
