@@ -24,6 +24,14 @@ Production-ready AI-powered book writing application with support for latest LLM
 
 ## Recent Improvements (January 2025)
 
+### 🎨 Gradio Web Interface Implementation (Jan 26, 2025)
+- **NEW**: Professional web UI with Gradio framework
+- **Features**: 7 main tabs for complete book generation workflow
+- **Components**: Project management, real-time generation monitoring, character editor with OCEAN model
+- **Integration**: Full DI container integration, event system support
+- **UI/UX**: Custom CSS styling, responsive layout, theme support
+- **Status**: Basic implementation complete, ready for testing
+
 ### 📝 Architectural Decision: Synchronous Book Generation (Jan 26, 2025)
 - **Decision**: Keep synchronous architecture for book generation
 - **Rationale**: Book chapters must be generated sequentially as each chapter needs context from previous chapters
@@ -531,7 +539,28 @@ ghostwriter-ai/
 
 ## Usage
 
-### Basic Usage
+### Web Interface (Gradio) - NEW! 🎨
+
+Launch the web interface:
+```bash
+python gradio_app.py
+```
+
+Or with options:
+```bash
+python gradio_app.py --host 0.0.0.0 --port 7860 --share
+```
+
+Features:
+- 📁 Project management with visual dashboard
+- ✍️ Real-time book generation monitoring
+- 👥 Character editor with OCEAN personality model
+- 🎨 Style gallery and templates
+- 📊 Analytics and quality metrics
+- 📤 Multi-format export
+- ⚙️ Settings and configuration
+
+### Basic CLI Usage
 
 Run the application:
 ```bash
