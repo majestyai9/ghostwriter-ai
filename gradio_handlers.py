@@ -43,17 +43,19 @@ class GradioHandlers:
         self._setup_event_handlers()
     
     def _setup_event_handlers(self):
-        """Set up event handlers for book generation progress."""
-        def log_event(event: Event):
-            """Log generation events for UI display."""
-            timestamp = datetime.now().strftime("%H:%M:%S")
-            message = f"[{timestamp}] {event.type.value}: {event.data.get('message', '')}"
-            self.event_logs.append(message)
-            logger.info(f"Event: {event.type.value} - {event.data}")
+        """Setup event handlers for real-time updates"""
+        from events import event_manager, EventType
+        
+        def log_event(event):
+            """Log generation events"""
+            self.event_logs.append({
+                "timestamp": datetime.now().isoformat(),
+                "type": event.type.value if hasattr(event.type, 'value') else str(event.type),
+                "data": event.data
+            })
+            logger.info(f"Event: {event.type} - {event.data}")
         
         # Subscribe to relevant events
-        event_manager.subscribe(EventType.GENERATION_STARTED, log_event)
-        event_manager.subscribe(EventType.CHAPTER_STARTED, log_event)
         event_manager.subscribe(EventType.CHAPTER_COMPLETED, log_event)
         event_manager.subscribe(EventType.GENERATION_COMPLETED, log_event)
         event_manager.subscribe(EventType.GENERATION_FAILED, log_event)
@@ -64,7 +66,15 @@ class GradioHandlers:
         """Get list of all projects with metadata."""
         try:
             projects = self.project_manager.list_projects()
-            return [self._format_project_info(p) for p in projects]
+            formatted_projects = []
+            for p in projects:
+                # Convert ProjectMetadata to dict
+                if hasattr(p, 'to_dict'):
+                    project_dict = p.to_dict()
+                else:
+                    project_dict = p
+                formatted_projects.append(self._format_project_info(project_dict))
+            return formatted_projects
         except Exception as e:
             logger.error(f"Error listing projects: {e}")
             return []
@@ -104,8 +114,24 @@ class GradioHandlers:
                 }
             )
             
-            # Get project info
-            project_info = self.project_manager.get_project(project_id)
+            # Get project info from list
+            projects = self.project_manager.list_projects()
+            project_info = None
+            for p in projects:
+                p_id = p.project_id if hasattr(p, 'project_id') else p.get('id', '')
+                if p_id == project_id:
+                    project_info = p.to_dict() if hasattr(p, 'to_dict') else p
+                    break
+            
+            if not project_info:
+                # If not found in list, create minimal info
+                project_info = {
+                    'id': project_id,
+                    'title': title,
+                    'language': language,
+                    'style': style,
+                    'metadata': metadata
+                }
             
             return True, f"Project '{title}' created successfully", self._format_project_info(project_info)
             
@@ -134,8 +160,13 @@ class GradioHandlers:
     def get_project_details(self, project_id: str) -> Dict[str, Any]:
         """Get detailed information about a project."""
         try:
-            project = self.project_manager.get_project(project_id)
-            return self._format_project_info(project)
+            projects = self.project_manager.list_projects()
+            for p in projects:
+                p_id = p.project_id if hasattr(p, 'project_id') else p.get('id', '')
+                if p_id == project_id:
+                    project_dict = p.to_dict() if hasattr(p, 'to_dict') else p
+                    return self._format_project_info(project_dict)
+            return {}
         except Exception as e:
             logger.error(f"Error getting project details: {e}")
             return {}
@@ -260,7 +291,7 @@ class GradioHandlers:
             if not db_path.exists():
                 return []
             
-            db = CharacterDatabase(str(db_path))
+            db = CharacterDatabase(db_path)
             characters = db.get_all_characters()
             return characters
         except Exception as e:
@@ -277,19 +308,55 @@ class GradioHandlers:
     ) -> Tuple[bool, str, Dict[str, Any]]:
         """Create a new character."""
         try:
+            from character_tracker import Character, CharacterRole, PersonalityTraits
+            
             db_path = self._get_character_db_path(project_id)
-            db = CharacterDatabase(str(db_path))
+            db = CharacterDatabase(db_path)
             
-            character_id = db.add_character({
-                "name": name,
-                "role": role,
-                "personality_traits": traits,
-                "description": description,
-                "created_at": datetime.now().isoformat()
-            })
+            # Convert role string to CharacterRole enum
+            role_map = {
+                "protagonist": CharacterRole.PROTAGONIST,
+                "antagonist": CharacterRole.ANTAGONIST,
+                "supporting": CharacterRole.SUPPORTING,
+                "minor": CharacterRole.MINOR
+            }
+            char_role = role_map.get(role.lower(), CharacterRole.MINOR)
             
-            character = db.get_character(character_id)
-            return True, f"Character '{name}' created", character
+            # Create PersonalityTraits from OCEAN scores
+            # Convert OCEAN scores to trait descriptions
+            trait_descriptions = []
+            if traits.get('openness', 50) > 70:
+                trait_descriptions.append("Creative and open-minded")
+            if traits.get('conscientiousness', 50) > 70:
+                trait_descriptions.append("Organized and dependable")
+            if traits.get('extraversion', 50) > 70:
+                trait_descriptions.append("Outgoing and energetic")
+            if traits.get('agreeableness', 50) > 70:
+                trait_descriptions.append("Cooperative and trusting")
+            if traits.get('neuroticism', 50) > 70:
+                trait_descriptions.append("Emotionally reactive")
+            
+            personality = PersonalityTraits(
+                traits=trait_descriptions if trait_descriptions else ["Balanced personality"]
+            )
+            
+            # Create Character object
+            character = Character(
+                name=name,
+                role=char_role,
+                personality=personality,
+                background=description
+            )
+            
+            db.add_character(character)
+            
+            # Return character as dict for UI
+            return True, f"Character '{name}' created", {
+                "name": character.name,
+                "role": character.role.value,
+                "description": character.background,
+                "personality_traits": traits
+            }
             
         except Exception as e:
             logger.error(f"Error creating character: {e}")
@@ -304,7 +371,7 @@ class GradioHandlers:
         """Update a character."""
         try:
             db_path = self._get_character_db_path(project_id)
-            db = CharacterDatabase(str(db_path))
+            db = CharacterDatabase(db_path)
             
             db.update_character(character_id, updates)
             return True, "Character updated successfully"
@@ -317,7 +384,7 @@ class GradioHandlers:
         """Delete a character."""
         try:
             db_path = self._get_character_db_path(project_id)
-            db = CharacterDatabase(str(db_path))
+            db = CharacterDatabase(db_path)
             
             db.delete_character(character_id)
             return True, "Character deleted successfully"
@@ -331,7 +398,16 @@ class GradioHandlers:
     def list_styles(self, category: Optional[str] = None) -> List[Dict[str, Any]]:
         """Get list of available styles."""
         try:
-            styles = self.style_manager.list_styles(category)
+            style_names = self.style_manager.list_styles(category)
+            styles = []
+            for name in style_names:
+                style = self.style_manager.get_style(name)
+                if style:
+                    styles.append({
+                        'name': style.name,
+                        'category': style.category,
+                        'description': f"{style.tone} writing with {style.vocabulary_level} vocabulary"
+                    })
             return styles
         except Exception as e:
             logger.error(f"Error listing styles: {e}")
@@ -340,7 +416,18 @@ class GradioHandlers:
     def get_style_details(self, style_name: str) -> Dict[str, Any]:
         """Get details about a specific style."""
         try:
-            return self.style_manager.get_style(style_name)
+            style = self.style_manager.get_style(style_name)
+            if style:
+                return {
+                    'name': style.name,
+                    'category': style.category,
+                    'description': f"{style.tone} writing with {style.vocabulary_level} vocabulary",
+                    'tone': style.tone,
+                    'vocabulary_level': style.vocabulary_level,
+                    'pacing': style.paragraph_length,  # Use paragraph_length as pacing
+                    'example': style.features[0] if style.features else "No example available"
+                }
+            return self.style_manager.get_style_info(style_name)
         except Exception as e:
             logger.error(f"Error getting style details: {e}")
             return {}
@@ -432,20 +519,35 @@ class GradioHandlers:
     
     def _format_project_info(self, project: Dict[str, Any]) -> Dict[str, Any]:
         """Format project information for display."""
-        return {
-            "id": project.get("id", ""),
-            "title": project.get("title", "Unknown"),
-            "language": project.get("language", "English"),
-            "style": project.get("style", "general"),
-            "status": project.get("metadata", {}).get("status", "draft"),
-            "created_at": project.get("metadata", {}).get("created_at", ""),
-            "chapters": project.get("metadata", {}).get("chapters", 0),
-            "instructions": project.get("metadata", {}).get("instructions", "")
-        }
+        # Handle both dict and object forms
+        if isinstance(project, dict):
+            return {
+                "id": project.get("project_id", project.get("id", "")),
+                "title": project.get("title", "Unknown"),
+                "language": project.get("language", "English"),
+                "style": project.get("style", "general"),
+                "status": project.get("status", project.get("metadata", {}).get("status", "draft")),
+                "created_at": project.get("created_at", project.get("metadata", {}).get("created_at", "")),
+                "chapters": project.get("chapter_count", project.get("metadata", {}).get("chapters", 0)),
+                "instructions": project.get("metadata", {}).get("instructions", "") if "metadata" in project else ""
+            }
+        else:
+            # Handle object directly
+            return {
+                "id": getattr(project, "project_id", ""),
+                "title": getattr(project, "title", "Unknown"),
+                "language": getattr(project, "language", "English"),
+                "style": getattr(project, "style", "general"),
+                "status": getattr(project, "status", "draft"),
+                "created_at": getattr(project, "created_at", ""),
+                "chapters": getattr(project, "chapter_count", 0),
+                "instructions": ""
+            }
     
     def _get_character_db_path(self, project_id: str) -> Path:
         """Get path to character database for a project."""
-        return Path(f"projects/{project_id}/characters.db")
+        project_dir = self.project_manager.get_project_dir(project_id)
+        return project_dir / "characters.db"
     
     def _get_api_key(self, provider: str) -> Optional[str]:
         """Get API key for specified provider."""

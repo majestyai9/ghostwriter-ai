@@ -27,6 +27,10 @@ from style_templates import StyleManager
 from character_tracker import CharacterDatabase
 from export_formats import BookExporter
 
+# Import Gradio handlers and state management
+from gradio_handlers import GradioHandlers
+from gradio_state import GradioSessionState
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -47,6 +51,11 @@ class GradioInterface:
         self.character_db = None
         self.current_project_id = None
         self.generation_active = False
+        
+        # Initialize handlers and state management
+        self.handlers = GradioHandlers()
+        self.state = GradioSessionState()
+        
         self.setup_container()
         
     def setup_container(self):
@@ -209,7 +218,7 @@ class GradioInterface:
         # Event handlers for project tab
         def refresh_projects():
             try:
-                projects = self.project_manager.list_projects()
+                projects = self.handlers.list_projects()
                 data = []
                 for p in projects:
                     data.append([
@@ -217,10 +226,10 @@ class GradioInterface:
                         p.get('title', ''),
                         p.get('status', 'draft'),
                         p.get('language', 'English'),
-                        p.get('chapters_count', 0),
-                        p.get('word_count', 0),
+                        p.get('chapters', 0),
+                        0,  # word_count - to be calculated
                         p.get('created_at', ''),
-                        p.get('modified_at', '')
+                        p.get('created_at', '')  # modified_at
                     ])
                 return data
             except Exception as e:
@@ -238,17 +247,18 @@ class GradioInterface:
                 if not title:
                     return gr.update(), "❌ Please enter a book title"
                 
-                project_id = self.project_manager.create_project(
+                success, message, project_info = self.handlers.create_project(
                     title=title,
                     language=language,
-                    metadata={
-                        'style': style,
-                        'instructions': instructions,
-                        'target_chapters': chapters
-                    }
+                    style=style,
+                    instructions=instructions,
+                    chapters=chapters
                 )
                 
-                return refresh_projects(), f"✅ Project '{title}' created successfully!"
+                if success:
+                    return refresh_projects(), message
+                else:
+                    return gr.update(), message
             except Exception as e:
                 return gr.update(), f"❌ Failed to create project: {str(e)}"
         
@@ -369,27 +379,96 @@ class GradioInterface:
                 return "❌ Please select a project first", "", "", ""
             
             try:
-                # TODO: IMPLEMENT REAL GENERATION
-                # This is currently a MOCKUP - needs actual implementation:
-                # 1. Initialize generation service with selected provider
-                # 2. Load project data
-                # 3. Start async generation with threading/asyncio
-                # 4. Connect to EventManager for real-time updates
-                # 5. Update UI progressively
+                import asyncio
+                import threading
                 
-                # MOCK IMPLEMENTATION - REPLACE THIS:
-                self.setup_generation_service(provider, model, temperature)
+                # Get project details to know target chapters
+                project_info = self.handlers.get_project_details(project_id)
+                target_chapters = project_info.get('chapters', 20)
+                
+                # Start generation in a background thread to prevent UI blocking
+                def run_async_generation():
+                    asyncio.run(self.handlers.generate_book(
+                        project_id=project_id,
+                        provider=provider,
+                        model=model,
+                        temperature=temperature,
+                        enable_rag=enable_rag,
+                        enable_quality_checks=enable_quality
+                    ))
+                
+                # Start generation in background
+                thread = threading.Thread(target=run_async_generation, daemon=True)
+                thread.start()
+                
                 self.generation_active = True
-                return "🚀 Generation started! (MOCK - not actually generating)", "1 / 20", "~2 hours", "0"
+                self.state.generation.is_active = True
+                self.state.generation.status_message = "Generation started!"
+                self.state.generation.total_chapters = target_chapters
+                
+                return "🚀 Generation started!", f"0 / {target_chapters}", "Calculating...", "0"
                 
             except Exception as e:
+                logger.error(f"Failed to start generation: {e}")
                 return f"❌ Failed to start generation: {str(e)}", "", "", ""
+        
+        def stop_generation():
+            """Stop the current generation process"""
+            try:
+                if self.handlers.generation_active:
+                    self.handlers.stop_generation()
+                    self.generation_active = False
+                    self.state.generation.is_active = False
+                    return "⏹️ Generation stopped by user", "", "", ""
+                else:
+                    return "ℹ️ No generation in progress", "", "", ""
+            except Exception as e:
+                logger.error(f"Failed to stop generation: {e}")
+                return f"❌ Error stopping generation: {str(e)}", "", "", ""
+        
+        def get_generation_status():
+            """Get current generation progress for periodic updates"""
+            if not self.handlers.generation_active:
+                return None
+            
+            try:
+                progress = self.handlers.get_generation_progress()
+                current_chapter = progress.get('current_chapter', 0)
+                total_chapters = progress.get('total_chapters', 0)
+                tokens_used = progress.get('tokens_used', 0)
+                status = progress.get('status', 'Processing...')
+                
+                # Calculate ETA based on progress
+                if current_chapter > 0 and total_chapters > 0:
+                    progress_pct = (current_chapter / total_chapters) * 100
+                    # Rough estimate: 5 minutes per chapter
+                    remaining_chapters = total_chapters - current_chapter
+                    eta_minutes = remaining_chapters * 5
+                    eta_str = f"~{eta_minutes} minutes" if eta_minutes < 60 else f"~{eta_minutes // 60} hours"
+                else:
+                    progress_pct = 0
+                    eta_str = "Calculating..."
+                
+                return {
+                    "progress_text": f"📋 {status}",
+                    "chapter_text": f"{current_chapter} / {total_chapters}",
+                    "eta": eta_str,
+                    "tokens": str(tokens_used),
+                    "progress_pct": progress_pct
+                }
+            except Exception as e:
+                logger.error(f"Failed to get generation status: {e}")
+                return None
         
         # Connect events
         gen_provider.change(update_model_choices, inputs=[gen_provider], outputs=[gen_model])
         btn_start.click(
             start_generation,
             inputs=[current_project, gen_provider, gen_model, gen_temperature, enable_rag, enable_quality],
+            outputs=[progress_text, current_chapter_text, eta_text, tokens_used]
+        )
+        btn_stop.click(
+            stop_generation,
             outputs=[progress_text, current_chapter_text, eta_text, tokens_used]
         )
     
@@ -400,21 +479,29 @@ class GradioInterface:
             with gr.Column(scale=2):
                 gr.Markdown("## 👥 Character Database")
                 
+                # Project selector for characters
+                char_project = gr.Dropdown(
+                    label="Select Project",
+                    choices=self.get_project_choices(),
+                    interactive=True
+                )
+                
                 character_list = gr.Dataframe(
-                    headers=["Name", "Role", "Personality", "Chapters"],
+                    headers=["ID", "Name", "Role", "Description"],
                     interactive=False
                 )
                 
                 with gr.Row():
+                    btn_refresh_chars = gr.Button("🔄 Refresh", variant="secondary")
                     btn_add_character = gr.Button("➕ Add Character", variant="primary")
-                    btn_edit_character = gr.Button("✏️ Edit", variant="secondary")
-                    btn_delete_character = gr.Button("🗑️ Delete", variant="stop")
+                    btn_delete_character = gr.Button("🗑️ Delete Selected", variant="stop")
             
             # Character editor
             with gr.Column(scale=3):
                 gr.Markdown("## ✏️ Character Editor")
                 
                 with gr.Group():
+                    char_id = gr.Number(label="Character ID", visible=False)
                     char_name = gr.Textbox(label="Character Name", placeholder="John Doe")
                     char_role = gr.Dropdown(
                         label="Role",
@@ -448,21 +535,113 @@ class GradioInterface:
                     with gr.Row():
                         btn_save_character = gr.Button("💾 Save Character", variant="primary")
                         btn_cancel_character = gr.Button("❌ Cancel", variant="secondary")
+                    
+                    # Status message area
+                    char_status_message = gr.Textbox(label="Status", interactive=False, visible=False)
+        
+        # Event handlers for character tab
+        def refresh_characters(project_id):
+            if not project_id:
+                return []
+            
+            try:
+                characters = self.handlers.list_characters(project_id)
+                data = []
+                for char in characters:
+                    data.append([
+                        char.get('id', 0),
+                        char.get('name', ''),
+                        char.get('role', ''),
+                        char.get('description', '')[:50] + '...' if len(char.get('description', '')) > 50 else char.get('description', '')
+                    ])
+                return data
+            except Exception as e:
+                logger.error(f"Failed to refresh characters: {e}")
+                return []
+        
+        def save_character(project_id, char_id, name, role, description, o, c, e, a, n):
+            if not project_id:
+                return gr.update(), "❌ Please select a project first"
+            
+            if not name:
+                return gr.update(), "❌ Character name is required"
+            
+            try:
+                traits = {
+                    "openness": o,
+                    "conscientiousness": c,
+                    "extraversion": e,
+                    "agreeableness": a,
+                    "neuroticism": n
+                }
+                
+                if char_id and char_id > 0:
+                    # Update existing character
+                    success, message = self.handlers.update_character(
+                        project_id, int(char_id), 
+                        {"name": name, "role": role, "description": description, "personality_traits": traits}
+                    )
+                else:
+                    # Create new character
+                    success, message, _ = self.handlers.create_character(
+                        project_id, name, role, traits, description
+                    )
+                
+                if success:
+                    return refresh_characters(project_id), message
+                else:
+                    return gr.update(), message
+            except Exception as e:
+                logger.error(f"Failed to save character: {e}")
+                return gr.update(), f"❌ Failed to save character: {str(e)}"
+        
+        def delete_selected_character(project_id, character_data):
+            if not project_id:
+                return gr.update(), "❌ Please select a project first"
+            
+            if not character_data or len(character_data) == 0:
+                return gr.update(), "❌ Please select a character to delete"
+            
+            try:
+                # Get selected character ID (first column)
+                char_id = character_data[0][0] if character_data else None
+                if char_id:
+                    success, message = self.handlers.delete_character(project_id, int(char_id))
+                    if success:
+                        return refresh_characters(project_id), message
+                    else:
+                        return gr.update(), message
+                else:
+                    return gr.update(), "❌ No character selected"
+            except Exception as e:
+                logger.error(f"Failed to delete character: {e}")
+                return gr.update(), f"❌ Failed to delete character: {str(e)}"
+        
+        # Connect events
+        char_project.change(refresh_characters, inputs=[char_project], outputs=[character_list])
+        btn_refresh_chars.click(refresh_characters, inputs=[char_project], outputs=[character_list])
+        btn_save_character.click(
+            save_character,
+            inputs=[char_project, char_id, char_name, char_role, char_description,
+                   ocean_o, ocean_c, ocean_e, ocean_a, ocean_n],
+            outputs=[character_list, char_status_message]
+        )
+        btn_delete_character.click(
+            delete_selected_character,
+            inputs=[char_project, character_list],
+            outputs=[character_list, char_status_message]
+        )
     
     def create_styles_tab(self, state):
         """Create styles and templates tab"""
         gr.Markdown("## 🎨 Writing Styles Gallery")
         
         with gr.Row():
-            # Style cards grid
+            # Style list
             with gr.Column(scale=3):
-                style_gallery = gr.Gallery(
-                    label="Available Styles",
-                    show_label=False,
-                    elem_id="style_gallery",
-                    columns=3,
-                    rows=3,
-                    height="auto"
+                style_list = gr.Dataframe(
+                    headers=["Name", "Category", "Description"],
+                    interactive=False
                 )
                 
                 # Style filter
@@ -472,11 +651,7 @@ class GradioInterface:
                         choices=["All", "Fiction", "Non-Fiction", "Academic", "Creative"],
                         value="All"
                     )
-                    style_rating = gr.Dropdown(
-                        label="Content Rating",
-                        choices=["All", "E - Everyone", "T - Teen", "M - Mature", "A - Adult"],
-                        value="All"
-                    )
+                    btn_refresh_styles = gr.Button("🔄 Refresh Styles", variant="secondary")
             
             # Style details
             with gr.Column(scale=2):
@@ -508,21 +683,85 @@ class GradioInterface:
                     with gr.Row():
                         btn_use_style = gr.Button("✅ Use This Style", variant="primary")
                         btn_customize = gr.Button("🔧 Customize", variant="secondary")
+        
+        # Event handlers for styles tab
+        def refresh_styles(category):
+            try:
+                cat = None if category == "All" else category.lower()
+                styles = self.handlers.list_styles(cat)
+                data = []
+                for style in styles:
+                    data.append([
+                        style.get('name', ''),
+                        style.get('category', 'General'),
+                        style.get('description', '')[:100] + '...' if len(style.get('description', '')) > 100 else style.get('description', '')
+                    ])
+                return data
+            except Exception as e:
+                logger.error(f"Failed to refresh styles: {e}")
+                return []
+        
+        def show_style_details(style_data, evt: gr.SelectData):
+            if not style_data or not evt:
+                return "", "", "", "", "", ""
+            
+            try:
+                # Get selected style name from the row
+                selected_row = style_data[evt.index[0]] if evt.index else None
+                if not selected_row:
+                    return "", "", "", "", "", ""
+                
+                style_name = selected_row[0]
+                details = self.handlers.get_style_details(style_name)
+                
+                return (
+                    details.get('name', ''),
+                    details.get('description', ''),
+                    details.get('tone', 'Not specified'),
+                    details.get('vocabulary_level', 'Not specified'),
+                    details.get('pacing', 'Not specified'),
+                    details.get('example', 'No example available')
+                )
+            except Exception as e:
+                logger.error(f"Failed to get style details: {e}")
+                return "", "", "", "", "", ""
+        
+        # Connect events
+        style_category.change(refresh_styles, inputs=[style_category], outputs=[style_list])
+        btn_refresh_styles.click(refresh_styles, inputs=[style_category], outputs=[style_list])
+        style_list.select(
+            show_style_details,
+            inputs=[style_list],
+            outputs=[selected_style_name, selected_style_description, style_tone,
+                    style_vocabulary, style_pacing, style_example]
+        )
+        
+        # Load initial styles
+        style_list.value = refresh_styles("All")
     
     def create_analytics_tab(self, state):
         """Create analytics and monitoring tab"""
         gr.Markdown("## 📊 Generation Analytics & Metrics")
         
         with gr.Row():
+            # Project selector
+            analytics_project = gr.Dropdown(
+                label="Select Project for Analytics",
+                choices=self.get_project_choices(),
+                interactive=True
+            )
+            btn_refresh_analytics = gr.Button("🔄 Refresh Analytics", variant="secondary")
+        
+        with gr.Row():
             # Real-time metrics
             with gr.Column():
-                gr.Markdown("### ⚡ Real-Time Metrics")
+                gr.Markdown("### ⚡ Book Statistics")
                 
                 with gr.Group():
-                    metric_status = gr.Textbox(label="Status", value="Idle", interactive=False)
-                    metric_speed = gr.Textbox(label="Generation Speed", value="0 words/min", interactive=False)
-                    metric_tokens = gr.Number(label="Total Tokens Used", value=0, interactive=False)
-                    metric_cost = gr.Textbox(label="Estimated Cost", value="$0.00", interactive=False)
+                    book_title = gr.Textbox(label="Book Title", value="-", interactive=False)
+                    total_chapters = gr.Number(label="Total Chapters", value=0, interactive=False)
+                    total_words = gr.Number(label="Total Words", value=0, interactive=False)
+                    avg_chapter_length = gr.Number(label="Average Chapter Length", value=0, interactive=False)
             
             # Quality metrics
             with gr.Column():
@@ -564,6 +803,45 @@ class GradioInterface:
             # Placeholder for Plotly charts
             performance_chart = gr.Plot(label="Generation Timeline")
             token_usage_chart = gr.Plot(label="Token Usage Distribution")
+        
+        # Event handlers for analytics
+        def load_analytics(project_id):
+            if not project_id:
+                return "-", 0, 0, 0, 0, 0, 0, 0
+            
+            try:
+                stats = self.handlers.get_book_statistics(project_id)
+                
+                if "error" in stats:
+                    return "No book generated yet", 0, 0, 0, 0, 0, 0, 0
+                
+                return (
+                    stats.get('title', '-'),
+                    stats.get('total_chapters', 0),
+                    stats.get('total_words', 0),
+                    stats.get('average_chapter_length', 0),
+                    85,  # Mock narrative consistency
+                    80,  # Mock character consistency
+                    75,  # Mock dialogue quality
+                    90   # Mock originality
+                )
+            except Exception as e:
+                logger.error(f"Failed to load analytics: {e}")
+                return "Error loading analytics", 0, 0, 0, 0, 0, 0, 0
+        
+        # Connect events
+        analytics_project.change(
+            load_analytics,
+            inputs=[analytics_project],
+            outputs=[book_title, total_chapters, total_words, avg_chapter_length,
+                    quality_narrative, quality_character, quality_dialogue, quality_originality]
+        )
+        btn_refresh_analytics.click(
+            load_analytics,
+            inputs=[analytics_project],
+            outputs=[book_title, total_chapters, total_words, avg_chapter_length,
+                    quality_narrative, quality_character, quality_dialogue, quality_originality]
+        )
     
     def create_export_tab(self, state):
         """Create export tab"""
@@ -619,6 +897,63 @@ class GradioInterface:
                 # Preview area
                 with gr.Accordion("👁️ Preview", open=False):
                     export_preview = gr.HTML(label="Preview")
+        
+        # Event handlers for export
+        def start_export(project_id, epub, pdf, docx, html, txt, author, publisher, isbn):
+            if not project_id:
+                return "❌ Please select a project first", ""
+            
+            if not any([epub, pdf, docx, html, txt]):
+                return "❌ Please select at least one export format", ""
+            
+            try:
+                download_links = []
+                
+                metadata = {
+                    "author": author or "Unknown",
+                    "publisher": publisher or "Self-published",
+                    "isbn": isbn or ""
+                }
+                
+                # Export in selected formats
+                formats_map = {
+                    "epub": epub,
+                    "pdf": pdf,
+                    "docx": docx,
+                    "html": html,
+                    "txt": txt
+                }
+                
+                for format_name, selected in formats_map.items():
+                    if selected:
+                        success, message, file_path = self.handlers.export_book(
+                            project_id, format_name, metadata
+                        )
+                        
+                        if success and file_path:
+                            download_links.append(
+                                f'<a href="file://{file_path}" download>💾 Download {format_name.upper()}</a>'
+                            )
+                        else:
+                            logger.warning(f"Failed to export {format_name}: {message}")
+                
+                if download_links:
+                    links_html = "<br>".join(download_links)
+                    return "✅ Export completed!", f"<div style='line-height: 2;'>{links_html}</div>"
+                else:
+                    return "❌ Export failed for all formats", "<p style='color: red;'>No book data found. Please generate the book first.</p>"
+                    
+            except Exception as e:
+                logger.error(f"Export failed: {e}")
+                return f"❌ Export failed: {str(e)}", ""
+        
+        # Connect events
+        btn_export.click(
+            start_export,
+            inputs=[export_project, export_epub, export_pdf, export_docx, export_html,
+                   export_txt, meta_author, meta_publisher, meta_isbn],
+            outputs=[export_status, download_area]
+        )
     
     def create_settings_tab(self, state):
         """Create settings tab"""
@@ -732,9 +1067,10 @@ class GradioInterface:
     def get_project_choices(self) -> List[Tuple[str, str]]:
         """Get list of projects for dropdown"""
         try:
-            projects = self.project_manager.list_projects()
+            projects = self.handlers.list_projects()
             return [(f"{p['title']} ({p['id'][:8]}...)", p['id']) for p in projects]
-        except:
+        except Exception as e:
+            logger.error(f"Failed to get project choices: {e}")
             return []
     
     def get_model_choices(self, provider: str) -> List[str]:
@@ -788,7 +1124,7 @@ class GradioInterface:
             state["generation_active"] = False
         
         event_manager.subscribe(EventType.CHAPTER_COMPLETED, on_chapter_completed)
-        event_manager.subscribe(EventType.GENERATION_ERROR, on_generation_error)
+        event_manager.subscribe(EventType.GENERATION_FAILED, on_generation_error)
     
     def get_custom_css(self) -> str:
         """Get custom CSS for the interface"""
