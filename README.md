@@ -24,6 +24,16 @@ Production-ready AI-powered book writing application with support for latest LLM
 
 ## Recent Improvements (January 2025)
 
+### ✅ Advanced Character Tracking System (Jan 26, 2025)
+- **OCEAN Personality Modeling** - Big Five personality traits (Openness, Conscientiousness, Extraversion, Agreeableness, Neuroticism) for deep character psychology
+- **Character Evolution Tracking** - Monitors personality changes, emotional states, skills gained, and beliefs changed throughout chapters
+- **Dialogue Consistency with Embeddings** - Vector embeddings ensure consistent speech patterns and detect inconsistencies
+- **Interaction Matrix for Relationships** - Tracks relationship strength (0-1) and personality compatibility between characters
+- **Voice Synthesis Patterns** - Unique speech characteristics including pitch variation, speaking pace, pause frequency, and vocal tics
+- **Per-Character Knowledge Base** - Tracks what each character knows, believes, and their secrets/false beliefs
+- **SQLite Integration** - Seamlessly integrates with character_tracker.py database for persistent storage
+- **Advanced Consistency Checking** - Detects evolution issues, dialogue inconsistencies, and knowledge conflicts
+
 ### ✅ Critical Book Generation Quality Fixes (Jan 26, 2025) 
 - **Narrative Consistency Engine** - Removes AI artifacts, tracks plot continuity across chapters
 - **Character Tracking Database** - SQLite-based system ensures character consistency (names, traits, relationships)

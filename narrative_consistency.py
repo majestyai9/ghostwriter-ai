@@ -493,3 +493,44 @@ class NarrativeConsistencyEngine:
         report['issues'].extend(self.consistency_warnings)
         
         return report
+    
+    def integrate_with_character_manager(self, character_manager):
+        """
+        Integrate narrative consistency with advanced character manager.
+        
+        Args:
+            character_manager: Instance of CharacterManager with evolution tracking
+        """
+        # Track character evolution in narrative
+        for name, character in character_manager.characters.items():
+            # Track all chapter appearances
+            for chapter in character.chapter_appearances:
+                if chapter not in self.character_mentions[name]:
+                    self.character_mentions[name].append(chapter)
+            
+            # Track character relationships in story context
+            for other_name, rel_data in character.relationships.items():
+                if isinstance(rel_data, dict) and 'description' in rel_data:
+                    self.story_context.important_objects[f"{name}-{other_name} relationship"] = rel_data['description']
+            
+            # Track character evolution events
+            if hasattr(character, 'evolution_history'):
+                for evolution in character.evolution_history:
+                    # Add to timeline
+                    growth_desc = evolution.growth_description[:100] if evolution.growth_description else "Character development"
+                    self.story_context.timeline.append(
+                        (evolution.chapter, f"{name}: {growth_desc}")
+                    )
+                    
+                    # Track trauma events as plot points
+                    if hasattr(evolution, 'trauma_events'):
+                        for trauma in evolution.trauma_events:
+                            self.track_plot_point(
+                                chapter=evolution.chapter,
+                                description=f"{name} experiences: {trauma}",
+                                characters=[name],
+                                tags=['trauma', 'character_development']
+                            )
+        
+        self._save_data()
+        logger.info(f"Integrated {len(character_manager.characters)} characters into narrative consistency")

@@ -2,7 +2,8 @@
 Dialogue Enhancement System for improving character dialogue quality and uniqueness.
 
 This module ensures dialogue is character-specific, eliminates clichés, and maintains
-unique speech patterns for each character.
+unique speech patterns for each character. Integrates with the advanced character
+development system for OCEAN personality-based dialogue generation.
 """
 
 import re
@@ -13,6 +14,7 @@ from dataclasses import dataclass, field
 from collections import defaultdict
 import json
 from pathlib import Path
+import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -679,3 +681,106 @@ class DialogueEnhancer:
         ]
         
         return analysis
+    
+    def enhance_with_ocean_personality(self, dialogue: str, ocean_scores: Dict[str, float]) -> str:
+        """
+        Enhance dialogue based on OCEAN personality scores.
+        
+        Args:
+            dialogue: Base dialogue text
+            ocean_scores: Dictionary with openness, conscientiousness, extraversion, agreeableness, neuroticism
+            
+        Returns:
+            Enhanced dialogue based on personality
+        """
+        enhanced = dialogue
+        
+        # High extraversion - more exclamations and energy
+        if ocean_scores.get('extraversion', 0.5) > 0.7:
+            if not enhanced.endswith('!') and random.random() < 0.3:
+                enhanced = enhanced.rstrip('.') + '!'
+            # Add energetic starters
+            if random.random() < 0.2:
+                starters = ['Hey!', 'Oh!', 'Wow,']
+                enhanced = f"{random.choice(starters)} {enhanced[0].lower()}{enhanced[1:]}"
+        
+        # Low extraversion - more reserved
+        elif ocean_scores.get('extraversion', 0.5) < 0.3:
+            enhanced = enhanced.replace('!', '.')
+            if random.random() < 0.2:
+                enhanced = f"Well, {enhanced[0].lower()}{enhanced[1:]}"
+        
+        # High neuroticism - more hesitation
+        if ocean_scores.get('neuroticism', 0.5) > 0.7:
+            if random.random() < 0.3:
+                # Add hesitation markers
+                hesitations = ['um', 'uh', 'well', 'I mean']
+                pos = enhanced.find(' ')
+                if pos > 0:
+                    enhanced = f"{enhanced[:pos]}, {random.choice(hesitations)},{enhanced[pos:]}"
+        
+        # High conscientiousness - more precise language
+        if ocean_scores.get('conscientiousness', 0.5) > 0.7:
+            # Remove casual contractions
+            enhanced = self._apply_contractions(enhanced, 'rare')
+        
+        # High openness - more creative expressions
+        if ocean_scores.get('openness', 0.5) > 0.7:
+            # Add creative metaphors occasionally
+            if random.random() < 0.15:
+                metaphors = [
+                    'like a puzzle piece falling into place',
+                    'as clear as crystal',
+                    'like dancing on air'
+                ]
+                enhanced += f", {random.choice(metaphors)}"
+        
+        # High agreeableness - softer language
+        if ocean_scores.get('agreeableness', 0.5) > 0.7:
+            # Soften commands
+            enhanced = enhanced.replace("You must", "Perhaps you could")
+            enhanced = enhanced.replace("Do it", "Would you mind doing it")
+        
+        return enhanced
+    
+    def integrate_with_character_manager(self, character_manager):
+        """
+        Integrate dialogue enhancer with character manager for advanced features.
+        
+        Args:
+            character_manager: Instance of CharacterManager with OCEAN personalities
+        """
+        # Import character patterns from character manager
+        for name, character in character_manager.characters.items():
+            if name not in self.character_patterns:
+                pattern = DialoguePattern()
+                
+                # Set formality based on OCEAN scores
+                if character.ocean_personality.conscientiousness > 0.7:
+                    pattern.formality_level = 'formal'
+                elif character.ocean_personality.openness > 0.7:
+                    pattern.formality_level = 'casual'
+                else:
+                    pattern.formality_level = 'neutral'
+                
+                # Set contractions based on extraversion
+                if character.ocean_personality.extraversion > 0.7:
+                    pattern.contractions_usage = 'frequent'
+                elif character.ocean_personality.extraversion < 0.3:
+                    pattern.contractions_usage = 'rare'
+                else:
+                    pattern.contractions_usage = 'normal'
+                
+                # Import speech patterns
+                pattern.unique_phrases = character.catchphrases
+                pattern.speech_quirks = character.mannerisms[:3] if character.mannerisms else []
+                
+                # Set based on voice pattern
+                if hasattr(character, 'voice_pattern'):
+                    voice = character.voice_pattern
+                    if voice.vocal_tics:
+                        pattern.speech_quirks.extend(voice.vocal_tics[:2])
+                
+                self.character_patterns[name] = pattern
+                
+        logger.info(f"Integrated {len(character_manager.characters)} characters from CharacterManager")

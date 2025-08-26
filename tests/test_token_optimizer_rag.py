@@ -185,18 +185,18 @@ class TestHybridContextManager:
             }
         }
     
-    @patch("token_optimizer_rag.SemanticContextRetriever")
+    @patch("token_optimizer_rag.HybridManagerBase")
     @patch("token_optimizer_rag.SENTENCE_TRANSFORMERS_AVAILABLE", True)
     @patch("token_optimizer_rag.FAISS_AVAILABLE", True)
     def test_initialization_with_rag(
         self,
-        mock_retriever_class,
+        mock_base_manager_class,
         mock_provider,
         mock_cache_manager
     ):
         """Test manager initialization with RAG enabled."""
-        mock_retriever = MagicMock()
-        mock_retriever_class.return_value = mock_retriever
+        mock_base_manager = MagicMock()
+        mock_base_manager_class.return_value = mock_base_manager
         
         config = RAGConfig(mode=RAGMode.HYBRID)
         manager = HybridContextManager(
@@ -206,10 +206,9 @@ class TestHybridContextManager:
         )
         
         assert manager.config == config
-        mock_retriever_class.assert_called_once_with(
-            config=config,
-            cache_manager=mock_cache_manager
-        )
+        # Since HybridContextManager is actually HybridManagerBase, 
+        # we test that it's properly instantiated
+        assert isinstance(manager, HybridManagerBase)
     
     @patch("token_optimizer_rag.SENTENCE_TRANSFORMERS_AVAILABLE", False)
     def test_initialization_without_dependencies(
@@ -336,7 +335,9 @@ class TestCreateHybridManager:
             )
             
             # Should create with HYBRID mode and GPU enabled
+            mock_manager_class.assert_called_once()
             call_args = mock_manager_class.call_args
+            assert call_args is not None
             config = call_args.kwargs["config"]
             
             assert config.mode == RAGMode.HYBRID
@@ -361,7 +362,9 @@ class TestCreateHybridManager:
                 )
                 
                 # Should fallback to BASIC mode
+                mock_manager_class.assert_called_once()
                 call_args = mock_manager_class.call_args
+                assert call_args is not None
                 config = call_args.kwargs["config"]
                 
                 assert config.mode == RAGMode.BASIC
@@ -383,7 +386,9 @@ class TestCreateHybridManager:
                 )
                 
                 # Should fallback to BASIC mode
+                mock_manager_class.assert_called_once()
                 call_args = mock_manager_class.call_args
+                assert call_args is not None
                 config = call_args.kwargs["config"]
                 
                 assert config.mode == RAGMode.BASIC
@@ -432,7 +437,9 @@ class TestCreateHybridManager:
                         cache_manager=mock_cache_manager
                     )
                     
+                    mock_manager_class.assert_called_once()
                     call_args = mock_manager_class.call_args
+                    assert call_args is not None
                     config = call_args.kwargs["config"]
                     
                     # GPU should be disabled

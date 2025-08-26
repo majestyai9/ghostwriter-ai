@@ -1,0 +1,83 @@
+{
+  "title": "Operation Black Swan",
+  "author": "AI Ghostwriter",
+  "genre": "Spy Thriller",
+  "chapters": [
+    {
+      "number": 1,
+      "word_count": 4207,
+      "file": "spy_thriller_book\\chapter_01.txt"
+    },
+    {
+      "number": 2,
+      "word_count": 4503,
+      "file": "spy_thriller_book\\chapter_02.txt"
+    },
+    {
+      "number": 3,
+      "word_count": 4083,
+      "file": "spy_thriller_book\\chapter_03.txt"
+    },
+    {
+      "number": 4,
+      "word_count": 4358,
+      "file": "spy_thriller_book\\chapter_04.txt"
+    },
+    {
+      "number": 5,
+      "word_count": 4415,
+      "file": "spy_thriller_book\\chapter_05.txt"
+    },
+    {
+      "number": 6,
+      "word_count": 4532,
+      "file": "spy_thriller_book\\chapter_06.txt"
+    },
+    {
+      "number": 7,
+      "word_count": 4115,
+      "file": "spy_thriller_book\\chapter_07.txt"
+    },
+    {
+      "number": 8,
+      "word_count": 4207,
+      "file": "spy_thriller_book\\chapter_08.txt"
+    },
+    {
+      "number": 9,
+      "word_count": 4186,
+      "file": "spy_thriller_book\\chapter_09.txt"
+    },
+    {
+      "number": 10,
+      "word_count": 4674,
+      "file": "spy_thriller_book\\chapter_10.txt"
+    },
+    {
+      "number": 11,
+      "word_count": 3953,
+      "file": "spy_thriller_book\\chapter_11.txt"
+    },
+    {
+      "number": 12,
+      "word_count": 3273,
+      "file": "spy_thriller_book\\chapter_12.txt"
+    },
+    {
+      "number": 13,
+      "word_count": 3647,
+      "file": "spy_thriller_book\\chapter_13.txt"
+    },
+    {
+      "number": 14,
+      "word_count": 4518,
+      "file": "spy_thriller_book\\chapter_14.txt"
+    },
+    {
+      "number": 15,
+      "word_count": 4230,
+      "file": "spy_thriller_book\\chapter_15.txt"
+    }
+  ],
+  "created_at": "2025-08-26T00:06:16.071965"
+}

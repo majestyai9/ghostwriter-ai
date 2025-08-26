@@ -461,10 +461,10 @@ class TestPromptConfig:
 class TestIntegration:
     """Integration tests for the prompt system."""
     
-    def test_end_to_end_workflow(self, temp_template_dir):
+    def test_end_to_end_workflow(self, tmp_path):
         """Test complete workflow from template to rendered prompt."""
         # Create service
-        service = PromptService(template_dir=str(temp_template_dir))
+        service = PromptService(template_dir=str(tmp_path))
         
         # Register template
         service.register_template(
@@ -482,8 +482,7 @@ class TestIntegration:
         # Prepare variables
         variables = {
             "number": 1,
-            "title": "Introduction",
-            "template_name": "chapter"
+            "title": "Introduction"
         }
         
         # Apply config
@@ -496,9 +495,9 @@ class TestIntegration:
         assert "creative" in result
         assert "2000" in result
     
-    def test_multilingual_support(self, temp_template_dir):
+    def test_multilingual_support(self, tmp_path):
         """Test support for multiple languages."""
-        service = PromptService(template_dir=str(temp_template_dir))
+        service = PromptService(template_dir=str(tmp_path))
         
         # Register templates in different languages
         service.register_template(

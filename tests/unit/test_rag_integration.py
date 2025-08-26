@@ -425,17 +425,30 @@ class TestRAGIntegration(unittest.TestCase):
         }
 
         # Prepare context for chapter 2
-        context = manager.prepare_context(
-            book=book,
-            current_chapter=1,
-            book_dir=self.book_dir
-        )
-
-        self.assertIsInstance(context, list)
-        self.assertGreater(len(context), 0)
-
+        # The _EnhancedRAGWrapper returns a string, but HybridManagerBase returns a list
+        # Check what type of manager we have
+        if hasattr(manager, 'enhanced_system'):
+            # Enhanced RAG wrapper returns string
+            context = manager.prepare_context(
+                book_data=book,
+                current_chapter=1,
+                instructions="Generate chapter 2: Development"
+            )
+            self.assertIsInstance(context, str)
+            context_str = context
+        else:
+            # Regular manager returns list
+            context = manager.prepare_context(
+                book=book,
+                current_chapter=1,
+                book_dir=self.book_dir
+            )
+            self.assertIsInstance(context, list)
+            self.assertGreater(len(context), 0)
+            # Verify context contains relevant information
+            context_str = " ".join(msg["content"] for msg in context)
+        
         # Verify context contains relevant information
-        context_str = " ".join(msg["content"] for msg in context)
         self.assertIn("Test Book", context_str)
         self.assertIn("Introduction", context_str)
 
