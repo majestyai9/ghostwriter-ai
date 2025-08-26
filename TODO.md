@@ -159,6 +159,21 @@
   - Weryfikacja spójności szczegółów technicznych
   - Realistyczne opisy taktyczne i szpiegowskie
 
+### ❌ 1.2.5 Asynchroniczny Model Aplikacji - ODRZUCONE (2025-01-26)
+**Decyzja architektoniczna**: NIE konwertować aplikacji na model asynchroniczny
+
+**Powody odrzucenia**:
+1. **Generowanie książek jest z natury sekwencyjne** - Rozdział 2 potrzebuje kontekstu z rozdziału 1
+2. **Brak korzyści z async/await** - Nie wykonujemy równoległych operacji I/O
+3. **Dodatkowa złożoność bez zysku** - Async komplikuje kod bez realnych korzyści
+4. **Aktualna architektura jest optymalna** - Synchroniczne wywołania API są właściwe dla sekwencyjnego workflow
+
+**Co rzeczywiście poprawiłoby wydajność**:
+- ✅ Cachowanie wyników API (już zaimplementowane)
+- ✅ RAG dla lepszego kontekstu (już zaimplementowane)
+- ✅ Circuit breaker pattern (już zaimplementowane)
+- ❌ Async/await (brak korzyści dla sekwencyjnego generowania)
+
 ### 1.3 Zaawansowane Zarządzanie Tokenami
 - [ ] Dynamiczna alokacja tokenów na podstawie złożoności rozdziału
 - [ ] Modele predykcji użycia tokenów (ML-based)

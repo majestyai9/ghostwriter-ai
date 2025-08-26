@@ -24,6 +24,15 @@ Production-ready AI-powered book writing application with support for latest LLM
 
 ## Recent Improvements (January 2025)
 
+### 📝 Architectural Decision: Synchronous Book Generation (Jan 26, 2025)
+- **Decision**: Keep synchronous architecture for book generation
+- **Rationale**: Book chapters must be generated sequentially as each chapter needs context from previous chapters
+- **Analysis**: Converting to async/await provides no benefit since we're not doing concurrent I/O operations
+- **Current optimizations are sufficient**: Caching, RAG, circuit breakers already provide optimal performance
+- **Conclusion**: Synchronous API calls are the correct approach for sequential workflows
+
+## Recent Improvements (January 2025)
+
 ### ✅ Advanced Character Tracking System (Jan 26, 2025)
 - **OCEAN Personality Modeling** - Big Five personality traits (Openness, Conscientiousness, Extraversion, Agreeableness, Neuroticism) for deep character psychology
 - **Character Evolution Tracking** - Monitors personality changes, emotional states, skills gained, and beliefs changed throughout chapters
