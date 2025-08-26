@@ -39,6 +39,45 @@ class EventType(Enum):
     TOKEN_LIMIT_REACHED = "token_limit_reached"
     RATE_LIMIT_HIT = "rate_limit_hit"
 
+class UIEventType(Enum):
+    """UI-specific event types for Gradio interface"""
+    # Project events
+    PROJECT_CREATED = "ui_project_created"
+    PROJECT_DELETED = "ui_project_deleted"
+    PROJECT_ARCHIVED = "ui_project_archived"
+    PROJECT_SELECTED = "ui_project_selected"
+    
+    # Character events
+    CHARACTER_CREATED = "ui_character_created"
+    CHARACTER_UPDATED = "ui_character_updated"
+    CHARACTER_DELETED = "ui_character_deleted"
+    
+    # Style events
+    STYLE_SELECTED = "ui_style_selected"
+    STYLE_CREATED = "ui_style_created"
+    STYLE_PREVIEW = "ui_style_preview"
+    
+    # Export events
+    EXPORT_STARTED = "ui_export_started"
+    EXPORT_COMPLETED = "ui_export_completed"
+    EXPORT_FAILED = "ui_export_failed"
+    
+    # Batch operations
+    BATCH_OPERATION_STARTED = "ui_batch_started"
+    BATCH_OPERATION_PROGRESS = "ui_batch_progress"
+    BATCH_OPERATION_COMPLETED = "ui_batch_completed"
+    BATCH_OPERATION_FAILED = "ui_batch_failed"
+    
+    # Performance events
+    PERFORMANCE_WARNING = "ui_performance_warning"
+    MEMORY_WARNING = "ui_memory_warning"
+    CACHE_CLEARED = "ui_cache_cleared"
+    
+    # Error events
+    ERROR_OCCURRED = "ui_error_occurred"
+    ERROR_RECOVERED = "ui_error_recovered"
+    RETRY_STARTED = "ui_retry_started"
+
 class Event:
     """Event data structure"""
     def __init__(self, event_type: EventType, data: Dict[str, Any] = None):
