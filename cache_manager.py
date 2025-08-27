@@ -1,6 +1,7 @@
 """
 Smart caching system for generated content
 """
+import asyncio
 import hashlib
 import json
 import logging
@@ -65,12 +66,18 @@ class MemoryCache(CacheBackend):
 
     def _start_cleanup_thread(self):
         """Start a daemon thread for periodic cleanup of expired entries"""
-        def cleanup_worker():
+        async def cleanup_worker():
             while True:
-                time.sleep(self.cleanup_interval)
+                await asyncio.sleep(self.cleanup_interval)
                 self._cleanup_expired()
 
-        cleanup_thread = threading.Thread(target=cleanup_worker, daemon=True)
+        # Create a new event loop for the cleanup thread
+        def run_cleanup():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            loop.run_until_complete(cleanup_worker())
+
+        cleanup_thread = threading.Thread(target=run_cleanup, daemon=True)
         cleanup_thread.start()
 
     def _cleanup_expired(self):

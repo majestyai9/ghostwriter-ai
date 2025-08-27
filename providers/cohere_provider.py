@@ -1,7 +1,7 @@
 """
 Cohere Provider Implementation
 """
-from collections.abc import Generator
+from collections.abc import AsyncGenerator
 from typing import Any, Dict, List
 
 from events import Event, EventType, event_manager
@@ -36,7 +36,7 @@ class CohereProvider(LLMProvider):
         # Initialize Cohere client
         self.client = cohere.Client(self.config['api_key'])
 
-    def generate(self,
+    async def generate(self,
                 prompt: str,
                 history: List[Dict[str, str]] = None,
                 max_tokens: int = 1024,
@@ -53,7 +53,7 @@ class CohereProvider(LLMProvider):
         }))
 
         try:
-            response = self._call_with_retry(
+            response = await self._call_with_retry(
                 self._create_chat,
                 message=prompt,
                 chat_history=chat_history,
@@ -83,12 +83,12 @@ class CohereProvider(LLMProvider):
         except Exception as e:
             raise self._handle_error(e)
 
-    def generate_stream(self,
+    async def generate_stream(self,
                        prompt: str,
                        history: List[Dict[str, str]] = None,
                        max_tokens: int = 1024,
                        temperature: float = 0.7,
-                       **kwargs) -> Generator[str, None, None]:
+                       **kwargs) -> AsyncGenerator[str, None]:
         """Generate text with streaming using Cohere API"""
 
         chat_history = self._convert_history(history) if history else []

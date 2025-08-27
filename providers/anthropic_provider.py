@@ -1,7 +1,7 @@
 """
 Anthropic Claude Provider Implementation
 """
-from collections.abc import Generator
+from collections.abc import AsyncGenerator
 from typing import Any, Dict, List
 
 from events import Event, EventType, event_manager
@@ -36,7 +36,7 @@ class AnthropicProvider(LLMProvider):
         # Initialize Anthropic client
         self.client = anthropic.Anthropic(api_key=self.config['api_key'])
 
-    def generate(self,
+    async def generate(self,
                 prompt: str,
                 history: List[Dict[str, str]] = None,
                 max_tokens: int = 1024,
@@ -53,7 +53,7 @@ class AnthropicProvider(LLMProvider):
         }))
 
         try:
-            response = self._call_with_retry(
+            response = await self._call_with_retry(
                 self._create_message,
                 messages=messages,
                 max_tokens=max_tokens,
@@ -83,12 +83,12 @@ class AnthropicProvider(LLMProvider):
         except Exception as e:
             raise self._handle_error(e)
 
-    def generate_stream(self,
+    async def generate_stream(self,
                        prompt: str,
                        history: List[Dict[str, str]] = None,
                        max_tokens: int = 1024,
                        temperature: float = 0.7,
-                       **kwargs) -> Generator[str, None, None]:
+                       **kwargs) -> AsyncGenerator[str, None]:
         """Generate text with streaming using Anthropic API"""
 
         messages = self._convert_messages(prompt, history)
@@ -101,14 +101,14 @@ class AnthropicProvider(LLMProvider):
         }))
 
         try:
-            with self.client.messages.stream(
+            async with self.client.messages.stream(
                 max_tokens=max_tokens,
                 messages=messages,
                 model=self.model,
                 temperature=temperature,
                 **kwargs
             ) as stream:
-                for text in stream.text_stream:
+                async for text in stream.text_stream:
                     yield text
 
         except Exception as e:

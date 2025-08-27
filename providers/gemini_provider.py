@@ -1,7 +1,7 @@
 """
 Google Gemini Provider Implementation
 """
-from collections.abc import Generator
+from collections.abc import AsyncGenerator
 from typing import Any, Dict, List
 
 from events import Event, EventType, event_manager
@@ -46,7 +46,7 @@ class GeminiProvider(LLMProvider):
             generation_config=generation_config
         )
 
-    def generate(self,
+    async def generate(self,
                 prompt: str,
                 history: List[Dict[str, str]] = None,
                 max_tokens: int = 1024,
@@ -71,7 +71,7 @@ class GeminiProvider(LLMProvider):
 
         try:
             # Use the base class retry mechanism with circuit breaker
-            response = self._call_with_retry(
+            response = await self._call_with_retry(
                 self._generate_content,
                 prompt=messages,  # Gemini expects 'prompt' not 'messages'
                 generation_config=generation_config,
@@ -115,12 +115,12 @@ class GeminiProvider(LLMProvider):
             error = self._handle_error(e)
             raise error
 
-    def generate_stream(self,
+    async def generate_stream(self,
                        prompt: str,
                        history: List[Dict[str, str]] = None,
                        max_tokens: int = 1024,
                        temperature: float = 0.7,
-                       **kwargs) -> Generator[str, None, None]:
+                       **kwargs) -> AsyncGenerator[str, None]:
         """Generate text with streaming using Gemini API"""
 
         messages = self._convert_messages(prompt, history)
@@ -141,7 +141,7 @@ class GeminiProvider(LLMProvider):
 
         try:
             # Use retry mechanism for streaming as well
-            response = self._call_with_retry(
+            response = await self._call_with_retry(
                 self.model.generate_content,
                 messages,  # This is already a string prompt from _convert_messages
                 generation_config=generation_config,

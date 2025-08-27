@@ -5,6 +5,7 @@ This module implements real-time incremental indexing to efficiently update
 the RAG indices as new content is generated, without full reindexing.
 """
 
+import asyncio
 import logging
 from typing import List, Dict, Any, Optional, Tuple, Set
 from dataclasses import dataclass, field
@@ -259,14 +260,20 @@ class IncrementalIndexer:
             return
         
         self._stop_event.clear()
+        
+        def run_async_loop():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            loop.run_until_complete(self._background_processing_loop())
+        
         self._processing_thread = threading.Thread(
-            target=self._background_processing_loop,
+            target=run_async_loop,
             daemon=True
         )
         self._processing_thread.start()
         self.logger.info("Started background processing thread")
     
-    def _background_processing_loop(self):
+    async def _background_processing_loop(self):
         """Background loop for processing updates."""
         while not self._stop_event.is_set():
             try:
@@ -286,7 +293,7 @@ class IncrementalIndexer:
                     self._save_checkpoint()
                 
                 # Wait for next interval
-                time.sleep(self.config.update_interval_seconds)
+                await asyncio.sleep(self.config.update_interval_seconds)
                 
             except Exception as e:
                 self.logger.error(f"Error in background processing: {e}")

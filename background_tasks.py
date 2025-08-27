@@ -1,6 +1,7 @@
 """
 Background task processing with Celery and RQ support
 """
+import asyncio
 import logging
 import os
 import time
@@ -315,7 +316,7 @@ class BackgroundTaskManager:
                 return True
             return False
 
-    def wait_for_task(self, task_id: str, timeout: int = None) -> TaskResult:
+    async def wait_for_task(self, task_id: str, timeout: int = None) -> TaskResult:
         start_time = time.time()
 
         while True:
@@ -328,7 +329,7 @@ class BackgroundTaskManager:
                 self.logger.warning(f"Task {task_id} timed out after {timeout}s")
                 return result
 
-            time.sleep(1)
+            await asyncio.sleep(1)
 
 # Global task manager
 task_manager = None

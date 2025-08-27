@@ -5,10 +5,11 @@ This module provides the abstract base class for all LLM providers, implementing
 critical reliability patterns including circuit breakers for fault tolerance and
 connection pooling for performance optimization.
 """
+import asyncio
 import logging
 import threading
 from abc import ABC, abstractmethod
-from collections.abc import Generator
+from collections.abc import AsyncGenerator, Generator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -414,7 +415,7 @@ class LLMProvider(ABC):
         pass
 
     @abstractmethod
-    def generate(self,
+    async def generate(self,
                 prompt: str,
                 history: List[Dict[str, str]] = None,
                 max_tokens: int = 1024,
@@ -438,12 +439,12 @@ class LLMProvider(ABC):
         pass
 
     @abstractmethod
-    def generate_stream(self,
+    async def generate_stream(self,
                        prompt: str,
                        history: List[Dict[str, str]] = None,
                        max_tokens: int = 1024,
                        temperature: float = 0.7,
-                       **kwargs) -> Generator[str, None, None]:
+                       **kwargs) -> AsyncGenerator[str, None]:
         """Generate text with streaming support.
         
         Args:
@@ -543,7 +544,7 @@ class LLMProvider(ABC):
         # Basic implementation - subclasses should override for specific handling
         return ProviderError(str(error))
 
-    def _call_with_retry(self,
+    async def _call_with_retry(self,
                         api_call: callable,
                         max_retries: int = 3,
                         exponential_base: float = 2.0,
@@ -576,7 +577,11 @@ class LLMProvider(ABC):
         for attempt in range(max_retries + 1):
             try:
                 # Execute with circuit breaker protection
-                result = self.circuit_breaker.call(api_call, **kwargs)
+                if asyncio.iscoroutinefunction(api_call):
+                    result = await api_call(**kwargs)
+                else:
+                    result = api_call(**kwargs)
+                self.circuit_breaker._record_success()
                 
                 # Reset circuit breaker on success
                 if attempt > 0:
@@ -606,9 +611,8 @@ class LLMProvider(ABC):
                     f"retrying in {delay:.2f} seconds: {e}"
                 )
                 
-                # Wait before retry
-                import time
-                time.sleep(delay)
+                # Wait before retry using async sleep
+                await asyncio.sleep(delay)
         
         # All retries failed
         if last_exception:

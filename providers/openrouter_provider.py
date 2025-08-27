@@ -2,7 +2,7 @@
 OpenRouter Provider Implementation - Access to multiple models through one API
 """
 import json
-from collections.abc import Generator
+from collections.abc import AsyncGenerator
 from typing import Any, Dict, List
 
 import requests
@@ -48,7 +48,7 @@ class OpenRouterProvider(LLMProvider):
 
         self.max_tokens_limit = self.model_limits.get(self.model, 4096)
 
-    def generate(self,
+    async def generate(self,
                 prompt: str,
                 history: List[Dict[str, str]] = None,
                 max_tokens: int = 1024,
@@ -65,7 +65,7 @@ class OpenRouterProvider(LLMProvider):
         }))
 
         try:
-            response = self._call_with_retry(
+            response = await self._call_with_retry(
                 self._create_chat_completion,
                 messages=messages,
                 max_tokens=max_tokens,
@@ -98,12 +98,12 @@ class OpenRouterProvider(LLMProvider):
         except Exception as e:
             raise self._handle_error(e)
 
-    def generate_stream(self,
+    async def generate_stream(self,
                        prompt: str,
                        history: List[Dict[str, str]] = None,
                        max_tokens: int = 1024,
                        temperature: float = 0.7,
-                       **kwargs) -> Generator[str, None, None]:
+                       **kwargs) -> AsyncGenerator[str, None]:
         """Generate text with streaming using OpenRouter API"""
 
         messages = self.prepare_messages(prompt, history)
