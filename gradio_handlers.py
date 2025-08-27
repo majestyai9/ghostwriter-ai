@@ -747,6 +747,95 @@ class GradioHandlers:
             logger.error(f"Error deleting character: {e}")
             return False, f"Error deleting character: {str(e)}"
     
+    def get_quality_metrics(self, project_id: str) -> Dict[str, float]:
+        """Get quality metrics for a project's generated content."""
+        try:
+            # Get project content
+            project = self.project_manager.get_project(project_id)
+            if not project:
+                return {}
+            
+            # Check if book has been generated
+            book_path = Path("output") / project_id / f"{project['title']}.md"
+            if not book_path.exists():
+                return {}
+            
+            # Read the book content
+            with open(book_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            
+            # Calculate quality metrics using validators
+            from chapter_validator import ChapterValidator
+            from dialogue_enhancer import DialogueEnhancer
+            
+            validator = ChapterValidator()
+            dialogue_enhancer = DialogueEnhancer()
+            
+            # Split content into chapters (simple split by chapter markers)
+            chapters = content.split("## Chapter")
+            total_score = 0
+            narrative_scores = []
+            dialogue_scores = []
+            
+            for chapter in chapters[1:]:  # Skip the first split which is before Chapter 1
+                if chapter.strip():
+                    # Validate each chapter
+                    validation = validator.validate_chapter(f"## Chapter{chapter}")
+                    
+                    # Calculate scores based on quality metrics
+                    if validation.quality == "high":
+                        score = 90
+                    elif validation.quality == "medium":
+                        score = 75
+                    else:
+                        score = 60
+                    
+                    narrative_scores.append(score)
+                    
+                    # Check dialogue quality
+                    dialogue_pct = validation.metrics.get('dialogue_percentage', 0)
+                    if 20 <= dialogue_pct <= 40:  # Ideal dialogue range
+                        dialogue_scores.append(85)
+                    elif 10 <= dialogue_pct <= 50:
+                        dialogue_scores.append(70)
+                    else:
+                        dialogue_scores.append(55)
+            
+            # Calculate average scores
+            narrative_consistency = sum(narrative_scores) / len(narrative_scores) if narrative_scores else 70
+            dialogue_quality = sum(dialogue_scores) / len(dialogue_scores) if dialogue_scores else 70
+            
+            # Character consistency (simplified - check if characters are mentioned consistently)
+            character_db_path = self._get_character_db_path(project_id)
+            character_consistency = 80  # Default
+            if Path(character_db_path).exists():
+                from character_tracker import CharacterDatabase
+                db = CharacterDatabase(character_db_path)
+                characters = db.get_all_characters()
+                if characters:
+                    # Check how many characters appear in the content
+                    mentioned = sum(1 for c in characters if c.name in content)
+                    character_consistency = min(95, 60 + (mentioned / len(characters)) * 35)
+            
+            # Originality score (simplified - based on vocabulary diversity)
+            words = content.lower().split()
+            unique_words = len(set(words))
+            total_words = len(words)
+            vocabulary_richness = (unique_words / total_words) * 100 if total_words > 0 else 0
+            originality = min(90, 50 + vocabulary_richness)
+            
+            return {
+                "narrative_consistency": narrative_consistency,
+                "character_consistency": character_consistency,
+                "dialogue_quality": dialogue_quality,
+                "originality": originality,
+                "overall_quality": (narrative_consistency + character_consistency + dialogue_quality + originality) / 4
+            }
+            
+        except Exception as e:
+            logger.error(f"Error calculating quality metrics: {e}")
+            return {}
+    
     # ===== Style Management =====
     
     def list_styles(self, category: Optional[str] = None) -> List[Dict[str, Any]]:

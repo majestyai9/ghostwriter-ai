@@ -4,7 +4,7 @@ Gradio State Management: Manages application state for Gradio interface.
 
 import logging
 from typing import Dict, Any, Optional, List
-from datetime import datetime
+from datetime import datetime, timedelta
 from dataclasses import dataclass, field
 import json
 
@@ -262,7 +262,6 @@ class GradioSessionState:
         if not last_refresh:
             return True
         
-        from datetime import timedelta
         return datetime.now() - last_refresh > timedelta(minutes=cache_timeout_minutes)
     
     # ===== State Persistence =====
@@ -345,6 +344,3 @@ class GradioSessionState:
 
 # Global state instance for Gradio session
 session_state = GradioSessionState()
-
-
-from datetime import timedelta  # Import at the end to avoid circular imports
