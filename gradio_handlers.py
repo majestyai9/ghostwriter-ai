@@ -7,9 +7,11 @@ import logging
 import json
 import asyncio
 import os
+import time
 from typing import Dict, Any, List, Optional, Tuple
 from pathlib import Path
 from datetime import datetime
+from collections import deque
 import traceback
 
 from containers import get_container
@@ -125,16 +127,11 @@ class GradioLogger:
         })
 
 # Replace the standard logger with Gradio-enhanced logger
-gradio_logger = GradioLogger(logger)
-
-
 from functools import lru_cache, wraps
-from typing import Dict, Any, Optional, List, Tuple
-import time
 import threading
-from collections import deque
 import psutil
-import traceback
+
+gradio_logger = GradioLogger(logger)
 
 # Performance monitoring
 class PerformanceMonitor:

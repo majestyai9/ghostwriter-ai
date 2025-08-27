@@ -822,3 +822,77 @@ class BookGenerator:
             
         except Exception as e:
             self.logger.warning(f"Failed to save quality data: {e}")
+    
+    async def generate_async(
+        self,
+        book_base_dir: str = None,
+        title: str = None,
+        instructions: str = None,
+        language: str = None
+    ) -> Dict[str, Any]:
+        """
+        Async wrapper for generate_book method to support Gradio's async operations.
+        
+        This method runs the synchronous generate_book in a thread pool to prevent
+        blocking the event loop.
+        
+        Args:
+            book_base_dir: Base directory for book files
+            title: Book title
+            instructions: Generation instructions  
+            language: Target language
+            
+        Returns:
+            Dict with success status and generated book data or error message
+        """
+        import asyncio
+        from concurrent.futures import ThreadPoolExecutor
+        
+        try:
+            # Get default values if not provided
+            if not all([book_base_dir, title, instructions, language]):
+                # Try to get from current context/project if available
+                from containers import get_container
+                container = get_container()
+                project_manager = container.resolve('ProjectManager')
+                
+                if project_manager and project_manager.current_project:
+                    project = project_manager.get_project(project_manager.current_project)
+                    book_base_dir = book_base_dir or str(project_manager.get_project_dir(project.id) / "content")
+                    title = title or project.title
+                    instructions = instructions or project.get('instructions', '')
+                    language = language or project.get('language', 'English')
+            
+            # Validate required parameters
+            if not all([book_base_dir, title, instructions, language]):
+                return {
+                    "success": False,
+                    "error": "Missing required parameters for book generation"
+                }
+            
+            # Run the synchronous method in a thread pool
+            loop = asyncio.get_event_loop()
+            with ThreadPoolExecutor(max_workers=1) as executor:
+                book = await loop.run_in_executor(
+                    executor,
+                    self.generate_book,
+                    book_base_dir,
+                    title,
+                    instructions,
+                    language
+                )
+            
+            return {
+                "success": True,
+                "book": book,
+                "message": f"Successfully generated book: {title}"
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Async book generation failed: {e}")
+            import traceback
+            return {
+                "success": False,
+                "error": str(e),
+                "traceback": traceback.format_exc()
+            }
